@@ -845,11 +845,29 @@
         });
 
         // Export PNG
+        // High-Resolution 1080p Export PNG
         document.getElementById('exportBtn').addEventListener('click', () => {
+            // Save current canvas dimensions
+            const originalWidth = canvas.width;
+            const originalHeight = canvas.height;
+
+            // Set canvas to target 1080p Full HD resolution (1920x1080)
+            canvas.width = 1920;
+            canvas.height = 1080;
+
+            // Redraw at the new high resolution
+            draw();
+
+            // Trigger download
             const link = document.createElement('a');
-            link.download = 'fancy-post.png';
+            link.download = 'fancy-post-1080p.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
+
+            // Restore original canvas dimensions for preview
+            canvas.width = originalWidth;
+            canvas.height = originalHeight;
+            draw();
         });
 
         // Initialize App
