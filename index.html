@@ -847,73 +847,123 @@
         // Export PNG
         // High-Resolution 1080p Export PNG
         // High-Resolution Proportional Export (2000x1200)
+        // Clean Offscreen 2000x1200 Export (Does not touch preview canvas)
         document.getElementById('exportBtn').addEventListener('click', () => {
-            const originalWidth = canvas.width;
-            const originalHeight = canvas.height;
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = 2000;
+            exportCanvas.height = 1200;
+            const eCtx = exportCanvas.getContext('2d');
 
-            const exportWidth = 2000;
-            const exportHeight = 1200;
-            const scaleFactor = exportWidth / originalWidth; // 2x multiplier
+            const scaleFactor = 2; // 2000px / 1000px preview ratio
 
-            // Temporarily expand canvas dimensions
-            canvas.width = exportWidth;
-            canvas.height = exportHeight;
+            // 1. Draw Background on export canvas
+            if (bgImages[currentBgIndex]) {
+                eCtx.drawImage(bgImages[currentBgIndex], 0, 0, exportCanvas.width, exportCanvas.height);
+            } else {
+                eCtx.fillStyle = '#222';
+                eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            }
 
-            // Temporarily multiply input values for the export render
-            const posXInput = document.getElementById('posX');
-            const posYInput = document.getElementById('posY');
-            const radiusInput = document.getElementById('cornerRadius');
-            const strokeInput = document.getElementById('strokeWidth');
-            const shadowXInput = document.getElementById('shadowX');
-            const shadowYInput = document.getElementById('shadowY');
-            const blurInput = document.getElementById('shadowBlur');
-            const spreadInput = document.getElementById('shadowSpread');
+            // 2. Gather parameters scaled up by 2x for high resolution
+            const imgToDraw = uploadedImg || defaultImg;
+            if (!imgToDraw) return;
 
-            const prev = {
-                x: parseFloat(posXInput.value),
-                y: parseFloat(posYInput.value),
-                r: parseFloat(radiusInput.value),
-                s: parseFloat(strokeInput.value),
-                sx: parseFloat(shadowXInput.value),
-                sy: parseFloat(shadowYInput.value),
-                b: parseFloat(blurInput.value),
-                sp: parseFloat(spreadInput.value)
+            const params = {
+                posX: (parseFloat(document.getElementById('posX').value) || 0) * scaleFactor,
+                posY: (parseFloat(document.getElementById('posY').value) || 0) * scaleFactor,
+                scaleX: (parseFloat(document.getElementById('scaleX').value) || 70) / 100,
+                scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
+                rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
+                rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
+                radius: (parseFloat(document.getElementById('cornerRadius').value) || 0) * scaleFactor,
+                strokeWidth: (parseFloat(document.getElementById('strokeWidth').value) || 0) * scaleFactor,
+                strokeColor: document.getElementById('strokeColor').value,
+                shadowColorHex: document.getElementById('shadowColor').value,
+                shadowOpacity: parseFloat(document.getElementById('shadowOpacity').value) || 25,
+                shadowX: (parseFloat(document.getElementById('shadowX').value) || 0) * scaleFactor,
+                shadowY: (parseFloat(document.getElementById('shadowY').value) || 0) * scaleFactor,
+                shadowBlur: (parseFloat(document.getElementById('shadowBlur').value) || 0) * scaleFactor,
+                shadowSpread: (parseFloat(document.getElementById('shadowSpread').value) || 0) * scaleFactor
             };
 
-            posXInput.value = prev.x * scaleFactor;
-            posYInput.value = prev.y * scaleFactor;
-            radiusInput.value = prev.r * scaleFactor;
-            strokeInput.value = prev.s * scaleFactor;
-            shadowXInput.value = prev.sx * scaleFactor;
-            shadowYInput.value = prev.sy * scaleFactor;
-            blurInput.value = prev.b * scaleFactor;
-            spreadInput.value = prev.sp * scaleFactor;
+            const rgb = hexToRgb(params.shadowColorHex);
+            const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
 
-            // Render high-res image
-            draw();
+            const w = imgToDraw.width * params.scaleX;
+            const h = imgToDraw.height * params.scaleY;
 
-            // Trigger download
+            let pts = [{x: 0, y: 0}, {x: w, y: 0}, {x: w, y: h}, {x: 0, y: h}];
+            const cx = w / 2;
+            const cy = h / 2;
+            const degX = params.rotX;
+            const degY = params.rotY;
+
+            pts = pts.map(p => {
+                let px = p.x - cx;
+                let py = p.y - cy;
+                let py1 = py * Math.cos(degX);
+                let pz1 = py * Math.sin(degX);
+                let px2 = px * Math.cos(degY) + pz1 * Math.sin(degY);
+                let pz2 = -px * Math.sin(degY) + pz1 * Math.cos(degY);
+                const D = 1000 * scaleFactor;
+                let scale = D / (D - pz2);
+                return { x: px2 * scale + cx, y: py1 * scale + cy };
+            });
+
+            const minX = Math.min(...pts.map(p => p.x));
+            const minY = Math.min(...pts.map(p => p.y));
+            pts = pts.map(p => ({x: p.x - minX, y: p.y - minY}));
+
+            const bufW = Math.max(...pts.map(p => p.x)) + params.shadowBlur * 2 + params.shadowSpread * 2;
+            const bufH = Math.max(...pts.map(p => p.y)) + params.shadowBlur * 2 + params.shadowSpread * 2;
+
+            const bufCanvas = document.createElement('canvas');
+            const bufCtx = bufCanvas.getContext('2d');
+            bufCanvas.width = Math.max(1, bufW);
+            bufCanvas.height = Math.max(1, bufH);
+
+            const offset = params.shadowBlur + params.shadowSpread;
+
+            bufCtx.save();
+            bufCtx.translate(offset - minX, offset - minY);
+
+            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)') {
+                bufCtx.shadowColor = canvasShadowColor;
+                bufCtx.shadowBlur = params.shadowBlur;
+                bufCtx.shadowOffsetX = params.shadowX;
+                bufCtx.shadowOffsetY = params.shadowY;
+                bufCtx.fillStyle = canvasShadowColor;
+                bufCtx.fill();
+            }
+
+            bufCtx.beginPath();
+            bufCtx.roundRect(0, 0, w, h, params.radius);
+            bufCtx.closePath();
+
+            bufCtx.save();
+            bufCtx.clip();
+            bufCtx.drawImage(imgToDraw, 0, 0, w, h);
+            bufCtx.restore();
+
+            if (params.strokeWidth > 0) {
+                bufCtx.lineWidth = params.strokeWidth * 2;
+                bufCtx.strokeStyle = params.strokeColor;
+                bufCtx.stroke();
+            }
+            bufCtx.restore();
+
+            eCtx.save();
+            eCtx.translate(params.posX, params.posY);
+            eCtx.rotate(params.rotY * 0.1);
+            eCtx.drawImage(bufCanvas, -offset + minX, -offset + minY);
+            eCtx.restore();
+
+            // Trigger download from the clean high-res export canvas
             const link = document.createElement('a');
-            link.download = 'fancy-post-hd.png';
-            link.href = canvas.toDataURL('image/png');
+            link.download = 'fancy-post-2000x1200.png';
+            link.href = exportCanvas.toDataURL('image/png');
             link.click();
-
-            // Restore original input values immediately
-            posXInput.value = prev.x;
-            posYInput.value = prev.y;
-            radiusInput.value = prev.r;
-            strokeInput.value = prev.s;
-            shadowXInput.value = prev.sx;
-            shadowYInput.value = prev.sy;
-            blurInput.value = prev.b;
-            spreadInput.value = prev.sp;
-
-            // Restore original preview canvas size
-            canvas.width = originalWidth;
-            canvas.height = originalHeight;
-            draw();
         });
-
         // Initialize App
         createBgThumbnails();
     </script>
