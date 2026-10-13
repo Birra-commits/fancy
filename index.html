@@ -56,7 +56,6 @@
         .sidebar {
             width: 420px;
             background: #18181c;
-            border-left: 1px, #2a2a30;
             border-left: 1px solid #2a2a30;
             display: flex;
             flex-direction: column;
@@ -78,6 +77,17 @@
             margin-bottom: 24px;
         }
 
+        /* Section headings */
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #8e8e93;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            margin-top: 16px;
+        }
+
         /* Scrollable Background Theme Grid */
         .bg-grid-container {
             max-height: 220px;
@@ -96,6 +106,28 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
             margin-bottom: 8px;
+        }
+
+        .bg-thumb {
+            aspect-ratio: 16/10;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.2s ease;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .bg-thumb:hover {
+            transform: scale(1.03);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .bg-thumb.active {
+            border-color: #0a84ff;
+            box-shadow: 0 0 12px rgba(10, 132, 255, 0.4);
         }
 
         /* Add Custom Background Button Card */
@@ -128,47 +160,6 @@
             font-size: 11px;
             color: #8e8e93;
             font-weight: 500;
-        }
-
-        /* Section headings */
-        .section-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #8e8e93;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            margin-top: 16px;
-        }
-
-        /* 3x3 Background Theme Grid */
-        .bg-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .bg-thumb {
-            aspect-ratio: 16/10;
-            border-radius: 8px;
-            cursor: pointer;
-            border: 2px solid transparent;
-            overflow: hidden;
-            position: relative;
-            transition: all 0.2s ease;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .bg-thumb:hover {
-            transform: scale(1.03);
-            border-color: rgba(255,255,255,0.4);
-        }
-
-        .bg-thumb.active {
-            border-color: #0a84ff;
-            box-shadow: 0 0 12px rgba(10, 132, 255, 0.4);
         }
 
         /* Control Groups */
@@ -343,7 +334,7 @@
             border-color: #555562;
         }
 
-        #fileInput {
+        #fileInput, #bgFileInput {
             display: none;
         }
     </style>
@@ -431,7 +422,14 @@
         let bgImages = [];
         let uploadedImg = null;
 
-        // Default test image (gradient placeholder if no upload yet)
+        // Background Files array (defaults to 1.jpg through 9.jpg)
+        let bgFiles = [
+            '1.jpg', '2.jpg', '3.jpg', 
+            '4.jpg', '5.jpg', '6.jpg', 
+            '7.jpg', '8.jpg', '9.jpg'
+        ];
+
+        // Default placeholder image
         const defaultImg = new Image();
         defaultImg.crossOrigin = "anonymous";
         defaultImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
@@ -446,19 +444,6 @@
         `);
         defaultImg.onload = () => draw();
 
-        // Background Theme Thumbnails Generation (Procedural Preview BGs matching reference)
-        const bgFiles = [
-            '1.jpg',
-            '2.jpg',
-            '3.jpg',
-            '4.jpg',
-            '5.jpg',
-            '6.jpg',
-            '7.jpg',
-            '8.jpg',
-            '9.jpg'
-        ];
-
         function createBgThumbnails() {
             const grid = document.getElementById('bgGrid');
             grid.innerHTML = '';
@@ -467,8 +452,6 @@
                 const thumb = document.createElement('div');
                 thumb.className = `bg-thumb ${index === currentBgIndex ? 'active' : ''}`;
                 thumb.style.backgroundImage = `url('${file}')`;
-                thumb.style.backgroundSize = 'cover';
-                thumb.style.backgroundPosition = 'center';
                 
                 thumb.onclick = () => {
                     document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
@@ -487,7 +470,7 @@
                 };
             });
 
-            // Add the "+ Add BG" button card
+            // Add the "+ Add Background" Button card at the end of the grid
             const addBtn = document.createElement('div');
             addBtn.className = 'bg-add-btn';
             addBtn.innerHTML = `
@@ -522,7 +505,7 @@
             }
         });
 
-        // Make background container draggable / scrollable with mouse
+        // Make background thumbnail container scrollable / draggable with mouse
         const slider = document.getElementById('bgGridContainer');
         let isDown = false;
         let startX, startY, scrollLeft, scrollTop;
@@ -537,18 +520,27 @@
             scrollTop = slider.scrollTop;
         });
 
-        slider.addEventListener('mouseleave', () => { isDown = false; slider.style.cursor = 'grab'; });
-        slider.addEventListener('mouseup', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mouseleave', () => {
+            isDown = false;
+            slider.style.cursor = 'grab';
+        });
+
+        slider.addEventListener('mouseup', () => {
+            isDown = false;
+            slider.style.cursor = 'grab';
+        });
 
         slider.addEventListener('mousemove', (e) => {
             if (!isDown) return;
             e.preventDefault();
             const x = e.pageX - slider.offsetLeft;
             const y = e.pageY - slider.offsetTop;
-            slider.scrollLeft = scrollLeft - ((x - startX) * 1.5);
-            slider.scrollTop = scrollTop - ((y - startY) * 1.5);
+            const walkX = (x - startX) * 1.5;
+            const walkY = (y - startY) * 1.5;
+            slider.scrollLeft = scrollLeft - walkX;
+            slider.scrollTop = scrollTop - walkY;
         });
-        
+
         // Main Draw Function
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -591,7 +583,7 @@
 
             // Draw Stroke / Border if enabled
             if (strokeWidth > 0) {
-                ctx.lineWidth = strokeWidth * 2; // scaled for crisp rendering
+                ctx.lineWidth = strokeWidth * 2;
                 ctx.strokeStyle = strokeColor;
                 ctx.stroke();
             }
@@ -608,7 +600,6 @@
                     const img = new Image();
                     img.onload = function() {
                         uploadedImg = img;
-                        // Auto set scale to fit nicely if first upload
                         document.getElementById('posX').value = Math.round((canvas.width - img.width * 0.7) / 2);
                         document.getElementById('posY').value = Math.round((canvas.height - img.height * 0.7) / 2);
                         document.getElementById('scaleX').value = 70;
@@ -642,7 +633,7 @@
             input.addEventListener('input', () => draw());
         });
 
-        // Horizontal Drag Scrubbing (Click & Drag left/right to change values)
+        // Horizontal Drag Scrubbing
         document.querySelectorAll('.control-field, .full-field').forEach(field => {
             const input = field.querySelector('input');
             let isDragging = false;
@@ -650,7 +641,7 @@
             let startVal = 0;
 
             field.addEventListener('mousedown', (e) => {
-                if (e.target === input) return; // allow normal input typing click
+                if (e.target === input) return;
                 isDragging = true;
                 startX = e.clientX;
                 startVal = parseFloat(input.value) || 0;
@@ -663,7 +654,6 @@
                 const delta = e.clientX - startX;
                 let newVal = startVal + Math.round(delta * 0.5);
                 
-                // Constraints
                 if (input.id === 'scaleX' || input.id === 'scaleY') {
                     newVal = Math.max(10, Math.min(300, newVal));
                 } else if (input.id === 'cornerRadius') {
