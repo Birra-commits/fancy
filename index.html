@@ -847,24 +847,66 @@
         // Export PNG
         // High-Resolution 1080p Export PNG
         document.getElementById('exportBtn').addEventListener('click', () => {
-            // Save current canvas dimensions
             const originalWidth = canvas.width;
             const originalHeight = canvas.height;
 
-            // Set canvas to target 1080p Full HD resolution (1920x1080)
-            canvas.width = 2000;
-            canvas.height = 1200;
+            // Target export resolution (maintains 5:3 ratio)
+            const exportWidth = 2000;
+            const exportHeight = 1200;
+            const scaleFactor = exportWidth / originalWidth; // Scale multiplier (2x)
 
-            // Redraw at the new high resolution
+            canvas.width = exportWidth;
+            canvas.height = exportHeight;
+
+            // Reference inputs
+            const posXInput = document.getElementById('posX');
+            const posYInput = document.getElementById('posY');
+            const radiusInput = document.getElementById('cornerRadius');
+            const strokeInput = document.getElementById('strokeWidth');
+            const shadowXInput = document.getElementById('shadowX');
+            const shadowYInput = document.getElementById('shadowY');
+            const blurInput = document.getElementById('shadowBlur');
+            const spreadInput = document.getElementById('shadowSpread');
+
+            // Save original UI values
+            const origPosX = parseFloat(posXInput.value);
+            const origPosY = parseFloat(posYInput.value);
+            const origRadius = parseFloat(radiusInput.value);
+            const origStroke = parseFloat(strokeInput.value);
+            const origShadowX = parseFloat(shadowXInput.value);
+            const origShadowY = parseFloat(shadowYInput.value);
+            const origBlur = parseFloat(blurInput.value);
+            const origSpread = parseFloat(spreadInput.value);
+
+            // Scale values proportionally for high-res export
+            posXInput.value = origPosX * scaleFactor;
+            posYInput.value = origPosY * scaleFactor;
+            radiusInput.value = origRadius * scaleFactor;
+            strokeInput.value = origStroke * scaleFactor;
+            shadowXInput.value = origShadowX * scaleFactor;
+            shadowYInput.value = origShadowY * scaleFactor;
+            blurInput.value = origBlur * scaleFactor;
+            spreadInput.value = origSpread * scaleFactor;
+
+            // Render high-resolution canvas
             draw();
 
             // Trigger download
             const link = document.createElement('a');
-            link.download = 'fancy-post-1080p.png';
+            link.download = 'fancy-post-hd.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
 
-            // Restore original canvas dimensions for preview
+            // Restore original input values and canvas dimensions for the preview
+            posXInput.value = origPosX;
+            posYInput.value = origPosY;
+            radiusInput.value = origRadius;
+            strokeInput.value = origStroke;
+            shadowXInput.value = origShadowX;
+            shadowYInput.value = origShadowY;
+            blurInput.value = origBlur;
+            spreadInput.value = origSpread;
+
             canvas.width = originalWidth;
             canvas.height = originalHeight;
             draw();
