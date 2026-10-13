@@ -78,6 +78,58 @@
             margin-bottom: 24px;
         }
 
+        /* Scrollable Background Theme Grid */
+        .bg-grid-container {
+            max-height: 220px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+            cursor: grab;
+        }
+
+        .bg-grid-container:active {
+            cursor: grabbing;
+        }
+
+        .bg-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* Add Custom Background Button Card */
+        .bg-add-btn {
+            aspect-ratio: 16/10;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px dashed #3a3a44;
+            background: #222228;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .bg-add-btn:hover {
+            border-color: #0a84ff;
+            background: #26262f;
+        }
+
+        .bg-add-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #8e8e93;
+        }
+
+        .bg-add-btn span {
+            font-size: 11px;
+            color: #8e8e93;
+            font-weight: 500;
+        }
+
         /* Section headings */
         .section-title {
             font-size: 13px;
@@ -313,8 +365,10 @@
         </div>
 
         <div class="section-title">Background Theme</div>
-        <div class="bg-grid" id="bgGrid">
-            <!-- Populated via JavaScript -->
+        <div class="bg-grid-container" id="bgGridContainer">
+            <div class="bg-grid" id="bgGrid">
+                <!-- Populated via JavaScript -->
+            </div>
         </div>
 
         <div class="section-title">Position</div>
@@ -362,6 +416,7 @@
         <!-- Upload & Export -->
         <div class="upload-section">
             <input type="file" id="fileInput" accept="image/*">
+            <input type="file" id="bgFileInput" accept="image/*">
             <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Upload Image</button>
             <button class="btn-export" id="exportBtn">Export PNG</button>
         </div>
@@ -410,7 +465,7 @@
             
             bgFiles.forEach((file, index) => {
                 const thumb = document.createElement('div');
-                thumb.className = `bg-thumb ${index === 0 ? 'active' : ''}`;
+                thumb.className = `bg-thumb ${index === currentBgIndex ? 'active' : ''}`;
                 thumb.style.backgroundImage = `url('${file}')`;
                 thumb.style.backgroundSize = 'cover';
                 thumb.style.backgroundPosition = 'center';
@@ -424,14 +479,76 @@
                 grid.appendChild(thumb);
 
                 const img = new Image();
+                img.crossOrigin = "anonymous";
                 img.src = file;
                 img.onload = () => {
                     bgImages[index] = img;
                     if (index === currentBgIndex) draw();
                 };
             });
+
+            // Add the "+ Add BG" button card
+            const addBtn = document.createElement('div');
+            addBtn.className = 'bg-add-btn';
+            addBtn.innerHTML = `
+                <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                <span>Add BG</span>
+            `;
+            addBtn.onclick = () => {
+                document.getElementById('bgFileInput').click();
+            };
+            grid.appendChild(addBtn);
         }
 
+        // Handle Custom Background Upload
+        document.getElementById('bgFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const dataUrl = event.target.result;
+                    bgFiles.push(dataUrl);
+                    currentBgIndex = bgFiles.length - 1;
+                    
+                    const img = new Image();
+                    img.onload = function() {
+                        bgImages[currentBgIndex] = img;
+                        createBgThumbnails();
+                        draw();
+                    };
+                    img.src = dataUrl;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Make background container draggable / scrollable with mouse
+        const slider = document.getElementById('bgGridContainer');
+        let isDown = false;
+        let startX, startY, scrollLeft, scrollTop;
+
+        slider.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.bg-thumb') || e.target.closest('.bg-add-btn')) return;
+            isDown = true;
+            slider.style.cursor = 'grabbing';
+            startX = e.pageX - slider.offsetLeft;
+            startY = e.pageY - slider.offsetTop;
+            scrollLeft = slider.scrollLeft;
+            scrollTop = slider.scrollTop;
+        });
+
+        slider.addEventListener('mouseleave', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mouseup', () => { isDown = false; slider.style.cursor = 'grab'; });
+
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const y = e.pageY - slider.offsetTop;
+            slider.scrollLeft = scrollLeft - ((x - startX) * 1.5);
+            slider.scrollTop = scrollTop - ((y - startY) * 1.5);
+        });
+        
         // Main Draw Function
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
