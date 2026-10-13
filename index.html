@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fancy - Beautify your posts background</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #1a1a1e;
+            color: #ffffff;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Main Preview Canvas Area */
+        .preview-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #121215;
+            position: relative;
+            overflow: hidden;
+            padding: 40px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            width: 1000px;
+            height: 600px;
+            object-fit: contain;
+        }
+
+        /* Sidebar Control Panel */
+        .sidebar {
+            width: 420px;
+            background: #18181c;
+            border-left: 1px, #2a2a30;
+            border-left: 1px solid #2a2a30;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 13px;
+            color: #8e8e93;
+            margin-bottom: 24px;
+        }
+
+        /* Section headings */
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #8e8e93;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            margin-top: 16px;
+        }
+
+        /* 3x3 Background Theme Grid */
+        .bg-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .bg-thumb {
+            aspect-ratio: 16/10;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.2s ease;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .bg-thumb:hover {
+            transform: scale(1.03);
+            border-color: rgba(255,255,255,0.4);
+        }
+
+        .bg-thumb.active {
+            border-color: #0a84ff;
+            box-shadow: 0 0 12px rgba(10, 132, 255, 0.4);
+        }
+
+        /* Control Groups */
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .control-field {
+            flex: 1;
+            background: #222228;
+            border: 1px solid #2f2f38;
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: ew-resize;
+            transition: border-color 0.2s;
+        }
+
+        .control-field:hover {
+            border-color: #484854;
+        }
+
+        .control-field label {
+            font-size: 12px;
+            color: #8e8e93;
+            font-weight: 500;
+            cursor: ew-resize;
+        }
+
+        .control-field input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 600;
+            width: 50px;
+            text-align: right;
+            outline: none;
+        }
+
+        /* Full width inputs */
+        .full-field {
+            width: 100%;
+            background: #222228;
+            border: 1px solid #2f2f38;
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: ew-resize;
+            margin-bottom: 8px;
+        }
+
+        .full-field label {
+            font-size: 12px;
+            color: #8e8e93;
+            font-weight: 500;
+        }
+
+        .full-field input {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 600;
+            width: 60px;
+            text-align: right;
+            outline: none;
+        }
+
+        /* Stroke Color & Style Row */
+        .stroke-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            background: #222228;
+            border: 1px solid #2f2f38;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+        }
+
+        .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .color-picker-wrapper input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            background: none;
+        }
+
+        .color-picker-wrapper input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        .color-picker-wrapper input[type="color"]::-webkit-color-swatch {
+            border: 1px solid #484854;
+            border-radius: 4px;
+        }
+
+        .color-text {
+            font-size: 12px;
+            font-family: monospace;
+            color: #ffffff;
+            background: #18181c;
+            border: 1px solid #2f2f38;
+            border-radius: 4px;
+            padding: 2px 6px;
+            width: 70px;
+            text-align: center;
+            outline: none;
+        }
+
+        /* Upload & Export Buttons */
+        .upload-section {
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid #2a2a30;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            background: #0a84ff;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #0071e3;
+        }
+
+        .btn-export {
+            background: #2c2c33;
+            color: #ffffff;
+            border: 1px solid #3a3a44;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .btn-export:hover {
+            background: #383842;
+            border-color: #555562;
+        }
+
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas Preview Area -->
+    <div class="preview-container">
+        <div class="canvas-wrapper">
+            <canvas id="canvas" width="1000" height="600"></canvas>
+        </div>
+    </div>
+
+    <!-- Sidebar Controls -->
+    <div class="sidebar">
+        <div class="header">
+            <h1>Fancy</h1>
+            <p>Beautify your posts background with easy tool.</p>
+        </div>
+
+        <div class="section-title">Background Theme</div>
+        <div class="bg-grid" id="bgGrid">
+            <!-- Populated via JavaScript -->
+        </div>
+
+        <div class="section-title">Position</div>
+        <div class="control-row">
+            <div class="control-field" data-input="posX">
+                <label>X</label>
+                <input type="number" id="posX" value="100">
+            </div>
+            <div class="control-field" data-input="posY">
+                <label>Y</label>
+                <input type="number" id="posY" value="80">
+            </div>
+        </div>
+
+        <div class="section-title">Image Scale</div>
+        <div class="control-row">
+            <div class="control-field" data-input="scaleX">
+                <label>X</label>
+                <input type="number" id="scaleX" value="100">
+            </div>
+            <div class="control-field" data-input="scaleY">
+                <label>Y</label>
+                <input type="number" id="scaleY" value="100">
+            </div>
+        </div>
+
+        <div class="section-title">Corner Radius</div>
+        <div class="full-field" data-input="cornerRadius">
+            <label>Radius</label>
+            <input type="number" id="cornerRadius" value="50">
+        </div>
+
+        <div class="section-title">Stroke</div>
+        <div class="stroke-row">
+            <div class="color-picker-wrapper">
+                <input type="color" id="strokeColor" value="#000000">
+                <input type="text" id="strokeColorText" class="color-text" value="#000000">
+            </div>
+            <div class="control-field" data-input="strokeWidth" style="margin-bottom:0;">
+                <label>Weight</label>
+                <input type="number" id="strokeWidth" value="0">
+            </div>
+        </div>
+
+        <!-- Upload & Export -->
+        <div class="upload-section">
+            <input type="file" id="fileInput" accept="image/*">
+            <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Upload Image</button>
+            <button class="btn-export" id="exportBtn">Export PNG</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State variables
+        let currentBgIndex = 0;
+        let bgImages = [];
+        let uploadedImg = null;
+
+        // Default test image (gradient placeholder if no upload yet)
+        const defaultImg = new Image();
+        defaultImg.crossOrigin = "anonymous";
+        defaultImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+                <rect width="600" height="400" fill="#1e1e24"/>
+                <rect x="40" y="40" width="520" height="320" rx="20" fill="#2d2d38"/>
+                <circle cx="70" cy="70" r="8" fill="#ff5f56"/>
+                <circle cx="95" cy="70" r="8" fill="#ffbd2e"/>
+                <circle cx="120" cy="70" r="8" fill="#27c93f"/>
+                <text x="300" y="215" fill="#ffffff" font-family="sans-serif" font-size="20" font-weight="600" text-anchor="middle">Upload your image to start</text>
+            </svg>
+        `);
+        defaultImg.onload = () => draw();
+
+        // Background Theme Thumbnails Generation (Procedural Preview BGs matching reference)
+        const bgFiles = [
+            '1.jpg',
+            '2.jpg',
+            '3.jpg',
+            '4.jpg',
+            '5.jpg',
+            '6.jpg',
+            '7.jpg',
+            '8.jpg',
+            '9.jpg'
+        ];
+
+        function createBgThumbnails() {
+            const grid = document.getElementById('bgGrid');
+            grid.innerHTML = '';
+            
+            bgFiles.forEach((file, index) => {
+                const thumb = document.createElement('div');
+                thumb.className = `bg-thumb ${index === 0 ? 'active' : ''}`;
+                thumb.style.backgroundImage = `url('${file}')`;
+                thumb.style.backgroundSize = 'cover';
+                thumb.style.backgroundPosition = 'center';
+                
+                thumb.onclick = () => {
+                    document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
+                    thumb.classList.add('active');
+                    currentBgIndex = index;
+                    draw();
+                };
+                grid.appendChild(thumb);
+
+                const img = new Image();
+                img.src = file;
+                img.onload = () => {
+                    bgImages[index] = img;
+                    if (index === currentBgIndex) draw();
+                };
+            });
+        }
+
+        // Main Draw Function
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Background Theme
+            if (bgImages[currentBgIndex]) {
+                ctx.drawImage(bgImages[currentBgIndex], 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // 2. Draw Uploaded / Default Image
+            const imgToDraw = uploadedImg || defaultImg;
+            
+            const posX = parseFloat(document.getElementById('posX').value) || 0;
+            const posY = parseFloat(document.getElementById('posY').value) || 0;
+            const scaleX = (parseFloat(document.getElementById('scaleX').value) || 100) / 100;
+            const scaleY = (parseFloat(document.getElementById('scaleY').value) || 100) / 100;
+            const radius = parseFloat(document.getElementById('cornerRadius').value) || 0;
+            const strokeWidth = parseFloat(document.getElementById('strokeWidth').value) || 0;
+            const strokeColor = document.getElementById('strokeColor').value;
+
+            const w = imgToDraw.width * scaleX;
+            const h = imgToDraw.height * scaleY;
+
+            ctx.save();
+            ctx.translate(posX, posY);
+
+            // Create Rounded Rectangle Path
+            ctx.beginPath();
+            ctx.roundRect(0, 0, w, h, radius);
+            ctx.closePath();
+
+            // Clip and draw image
+            ctx.save();
+            ctx.clip();
+            ctx.drawImage(imgToDraw, 0, 0, w, h);
+            ctx.restore();
+
+            // Draw Stroke / Border if enabled
+            if (strokeWidth > 0) {
+                ctx.lineWidth = strokeWidth * 2; // scaled for crisp rendering
+                ctx.strokeStyle = strokeColor;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // File Upload Handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        uploadedImg = img;
+                        // Auto set scale to fit nicely if first upload
+                        document.getElementById('posX').value = Math.round((canvas.width - img.width * 0.7) / 2);
+                        document.getElementById('posY').value = Math.round((canvas.height - img.height * 0.7) / 2);
+                        document.getElementById('scaleX').value = 70;
+                        document.getElementById('scaleY').value = 70;
+                        draw();
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Sync Color Inputs
+        const strokeColorInput = document.getElementById('strokeColor');
+        const strokeColorText = document.getElementById('strokeColorText');
+
+        strokeColorInput.addEventListener('input', (e) => {
+            strokeColorText.value = e.target.value;
+            draw();
+        });
+
+        strokeColorText.addEventListener('input', (e) => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                strokeColorInput.value = e.target.value;
+                draw();
+            }
+        });
+
+        // Input Change Listener for all number fields
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', () => draw());
+        });
+
+        // Horizontal Drag Scrubbing (Click & Drag left/right to change values)
+        document.querySelectorAll('.control-field, .full-field').forEach(field => {
+            const input = field.querySelector('input');
+            let isDragging = false;
+            let startX = 0;
+            let startVal = 0;
+
+            field.addEventListener('mousedown', (e) => {
+                if (e.target === input) return; // allow normal input typing click
+                isDragging = true;
+                startX = e.clientX;
+                startVal = parseFloat(input.value) || 0;
+                document.body.style.cursor = 'ew-resize';
+                e.preventDefault();
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const delta = e.clientX - startX;
+                let newVal = startVal + Math.round(delta * 0.5);
+                
+                // Constraints
+                if (input.id === 'scaleX' || input.id === 'scaleY') {
+                    newVal = Math.max(10, Math.min(300, newVal));
+                } else if (input.id === 'cornerRadius') {
+                    newVal = Math.max(0, Math.min(200, newVal));
+                } else if (input.id === 'strokeWidth') {
+                    newVal = Math.max(0, Math.min(50, newVal));
+                }
+
+                input.value = newVal;
+                draw();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    document.body.style.cursor = 'default';
+                }
+            });
+        });
+
+        // Export PNG
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'fancy-post.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Initialize App
+        createBgThumbnails();
+    </script>
+</body>
+</html>
