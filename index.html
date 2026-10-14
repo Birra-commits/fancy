@@ -850,11 +850,16 @@
         // Clean Offscreen 2000x1200 Export (Does not touch preview canvas)
         // Perfect Proportional 2000x1200 Export using Context Scaling
         // Fully Proportional 2000x1200 Export
+        // Perfect Proportional 2000x1200 Export with High-Quality Smoothing
         document.getElementById('exportBtn').addEventListener('click', () => {
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = 2000;
             exportCanvas.height = 1200;
             const eCtx = exportCanvas.getContext('2d');
+
+            // Force high-quality rendering for crisp text and screenshots
+            eCtx.imageSmoothingEnabled = true;
+            eCtx.imageSmoothingQuality = 'high';
 
             const scale = 2; // Scale factor from 1000x600 to 2000x1200
 
@@ -866,7 +871,7 @@
                 eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
             }
 
-            // 2. Gather parameters and scale ALL values by 2x for exact proportionality
+            // 2. Gather parameters and scale ALL values by 2x
             const imgToDraw = uploadedImg || defaultImg;
             if (!imgToDraw) return;
 
@@ -889,7 +894,6 @@
             const rgb = hexToRgb(shadowColorHex);
             const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${shadowOpacity / 100})`;
 
-            // Scale image dimensions by 2 so it occupies the exact same relative size
             const w = imgToDraw.width * scaleX * scale;
             const h = imgToDraw.height * scaleY * scale;
 
@@ -904,7 +908,7 @@
                 let pz1 = py * Math.sin(rotX);
                 let px2 = px * Math.cos(rotY) + pz1 * Math.sin(rotY);
                 let pz2 = -px * Math.sin(rotY) + pz1 * Math.cos(rotY);
-                const D = 1000 * scale; // Scale camera distance to match 2x proportions
+                const D = 1000 * scale;
                 let perspScale = D / (D - pz2);
                 return { x: px2 * perspScale + cx, y: py1 * perspScale + cy };
             });
@@ -918,6 +922,11 @@
 
             const bufCanvas = document.createElement('canvas');
             const bufCtx = bufCanvas.getContext('2d');
+            
+            // Force high-quality rendering on the shadow/image buffer too
+            bufCtx.imageSmoothingEnabled = true;
+            bufCtx.imageSmoothingQuality = 'high';
+
             bufCanvas.width = Math.max(1, bufW);
             bufCanvas.height = Math.max(1, bufH);
 
