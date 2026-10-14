@@ -435,6 +435,10 @@
                     <label>Y</label>
                     <input type="number" id="textY" value="40">
                 </div>
+                <div class="control-field" data-input="fontSize" title="Font Size" style="margin-bottom:0;">
+                    <label>Size</label>
+                    <input type="number" id="fontSize" value="22">
+                </div>
             </div>
         </div>
 
@@ -613,7 +617,8 @@
                 textContent: document.getElementById('textContent').value || '',
                 textColor: document.getElementById('textColor').value || '#ffffff',
                 textX: parseFloat(document.getElementById('textX').value) || 30,
-                textY: parseFloat(document.getElementById('textY').value) || 40
+                textY: parseFloat(document.getElementById('textY').value) || 40,
+                fontSize: parseFloat(document.getElementById('fontSize').value) || 22
             };
 
             const rgb = hexToRgb(params.shadowColorHex);
@@ -622,6 +627,7 @@
             const w = imgToDraw.width * params.scaleX;
             const h = imgToDraw.height * params.scaleY;
 
+            // --- DRAW CARD WITH PERSPECTIVE ---
             ctx.save();
             ctx.translate(params.posX, params.posY);
 
@@ -647,7 +653,7 @@
             ctx.fillStyle = '#000000';
             ctx.fill();
 
-            // Reset shadow so image contents and text don't blur heavily
+            // Reset shadow so image contents don't blur heavily
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
             ctx.shadowOffsetX = 0;
@@ -657,15 +663,6 @@
             ctx.save();
             ctx.clip();
             ctx.drawImage(imgToDraw, 0, 0, w, h);
-
-            // Render Inserted Text with custom color and X/Y coordinates
-            if (params.textContent.trim() !== '') {
-                ctx.font = '600 22px sans-serif';
-                ctx.fillStyle = params.textColor;
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-                ctx.shadowBlur = 4;
-                ctx.fillText(params.textContent, params.textX, params.textY);
-            }
             ctx.restore();
 
             // Draw Stroke / Border
@@ -675,9 +672,23 @@
                 ctx.stroke();
             }
 
-            ctx.restore();
+            ctx.restore(); // End of card perspective block
+
+            // --- DRAW TEXT FLAT (OUTSIDE PERSPECTIVE) ---
+            if (params.textContent.trim() !== '') {
+                ctx.save();
+                ctx.translate(params.posX, params.posY); // Stays positioned with the card, but completely flat
+                ctx.font = `600 ${params.fontSize}px sans-serif`;
+                ctx.fillStyle = params.textColor;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 2;
+                ctx.fillText(params.textContent, params.textX, params.textY);
+                ctx.restore();
+            }
         }
-        
+
         // Horizontal Drag Scrubbing
         document.querySelectorAll('.control-field, .full-field').forEach(field => {
             const input = field.querySelector('input');
