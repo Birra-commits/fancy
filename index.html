@@ -65,6 +65,18 @@
             padding: 24px;
         }
 
+        /* Ensure the sidebar/control container fits cleanly without horizontal overflow */
+        .sidebar, .control-panel, .panel {
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+        .stroke-row, .control-row {
+            flex-wrap: nowrap;
+            gap: 6px;
+            width: 100%;
+        }
+
         .header h1 {
             font-size: 22px;
             font-weight: 600;
@@ -593,11 +605,11 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
-            // 2. Select Image (Multi-upload or Default fallback)
+            // 2. Select Active Image from Multi-Upload array
             const imgToDraw = (uploadedImages.length > 0) ? uploadedImages[currentImageIndex] : defaultImg;
             if (!imgToDraw) return;
 
-            // Gather parameters
+            // Gather parameters including Z-Axis and Typography
             const params = {
                 posX: parseFloat(document.getElementById('posX').value) || 0,
                 posY: parseFloat(document.getElementById('posY').value) || 0,
@@ -605,6 +617,7 @@
                 scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
                 rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
                 rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
+                rotZ: (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180), // Added Z-Axis
                 radius: parseFloat(document.getElementById('cornerRadius').value) || 0,
                 strokeWidth: parseFloat(document.getElementById('strokeWidth').value) || 0,
                 strokeColor: document.getElementById('strokeColor').value,
@@ -616,9 +629,11 @@
                 shadowSpread: parseFloat(document.getElementById('shadowSpread').value) || 0,
                 textContent: document.getElementById('textContent').value || '',
                 textColor: document.getElementById('textColor').value || '#ffffff',
-                textX: parseFloat(document.getElementById('textX').value) || 30,
-                textY: parseFloat(document.getElementById('textY').value) || 40,
-                fontSize: parseFloat(document.getElementById('fontSize').value) || 22
+                textX: parseFloat(document.getElementById('textX').value) || 50,
+                textY: parseFloat(document.getElementById('textY').value) || 50,
+                fontSize: parseFloat(document.getElementById('fontSize').value) || 22,
+                fontFamily: document.getElementById('fontFamily') ? document.getElementById('fontFamily').value : 'Inter',
+                fontWeight: document.getElementById('fontWeight') ? document.getElementById('fontWeight').value : '600'
             };
 
             const rgb = hexToRgb(params.shadowColorHex);
@@ -627,18 +642,18 @@
             const w = imgToDraw.width * params.scaleX;
             const h = imgToDraw.height * params.scaleY;
 
-            // --- DRAW CARD WITH PERSPECTIVE ---
+            // --- DRAW CARD WITH PERSPECTIVE (X, Y, Z Axis) ---
             ctx.save();
             ctx.translate(params.posX, params.posY);
 
-            // Apply 3D Perspective / Tilt Matrix Transformation
+            // Apply 3D Perspective Matrix + Z-Axis rotation
             ctx.transform(
                 1, Math.tan(params.rotX), 
                 Math.tan(params.rotY), 1, 
                 0, 0
             );
+            ctx.rotate(params.rotZ);
 
-            // Drop Shadow applied to the card shape body
             if (canvasShadowColor !== 'rgba(0, 0, 0, 0)' && params.shadowBlur > 0) {
                 ctx.shadowColor = canvasShadowColor;
                 ctx.shadowBlur = params.shadowBlur;
@@ -646,44 +661,37 @@
                 ctx.shadowOffsetY = params.shadowY;
             }
 
-            // Draw base shape for shadow casting
             ctx.beginPath();
             ctx.roundRect(0, 0, w, h, params.radius);
             ctx.closePath();
             ctx.fillStyle = '#000000';
             ctx.fill();
 
-            // Reset shadow so image contents don't blur heavily
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
 
-            // Clip and draw image inside rounded rect
             ctx.save();
             ctx.clip();
             ctx.drawImage(imgToDraw, 0, 0, w, h);
             ctx.restore();
 
-            // Draw Stroke / Border
             if (params.strokeWidth > 0) {
                 ctx.lineWidth = params.strokeWidth * 2;
                 ctx.strokeStyle = params.strokeColor;
                 ctx.stroke();
             }
+            ctx.restore(); // End of Card block
 
-            ctx.restore(); // End of card perspective block
-
-            // --- DRAW TEXT FLAT (OUTSIDE PERSPECTIVE) ---
+            // --- DRAW TEXT (Completely Independent Position, NO Shadow, Google Font & Weight) ---
             if (params.textContent.trim() !== '') {
                 ctx.save();
-                ctx.translate(params.posX, params.posY); // Stays positioned with the card, but completely flat
-                ctx.font = `600 ${params.fontSize}px sans-serif`;
+                // Text uses absolute screen coordinates (independent of card position)
+                ctx.font = `${params.fontWeight} ${params.fontSize}px '${params.fontFamily}', sans-serif`;
                 ctx.fillStyle = params.textColor;
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-                ctx.shadowBlur = 4;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 2;
+                ctx.shadowColor = 'transparent'; // NO text shadow
+                ctx.shadowBlur = 0;
                 ctx.fillText(params.textContent, params.textX, params.textY);
                 ctx.restore();
             }
@@ -742,6 +750,12 @@
                 }
             });
         });
+
+        // Load Google Fonts dynamically
+        const fontLink = document.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap';
+        document.head.appendChild(fontLink);
 
         // File Upload Handler
         // Update your fileInput event listener for multi-upload:
@@ -840,13 +854,12 @@
             exportCanvas.height = 1200;
             const eCtx = exportCanvas.getContext('2d');
 
-            // Force high-quality rendering for crisp text and screenshots
             eCtx.imageSmoothingEnabled = true;
             eCtx.imageSmoothingQuality = 'high';
 
-            const scale = 2; // Scale factor from 1000x600 to 2000x1200
+            const scale = 2; // 2x scale factor for HD output
 
-            // 1. Draw Background Theme
+            // Draw Background
             if (bgImages[currentBgIndex]) {
                 eCtx.drawImage(bgImages[currentBgIndex], 0, 0, exportCanvas.width, exportCanvas.height);
             } else {
@@ -854,8 +867,7 @@
                 eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
             }
 
-            // 2. Gather parameters and scale ALL values by 2x
-            const imgToDraw = uploadedImg || defaultImg;
+            const imgToDraw = (uploadedImages.length > 0) ? uploadedImages[currentImageIndex] : defaultImg;
             if (!imgToDraw) return;
 
             const posX = (parseFloat(document.getElementById('posX').value) || 0) * scale;
@@ -864,6 +876,7 @@
             const scaleY = (parseFloat(document.getElementById('scaleY').value) || 70) / 100;
             const rotX = (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180);
             const rotY = (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180);
+            const rotZ = (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180);
             const radius = (parseFloat(document.getElementById('cornerRadius').value) || 0) * scale;
             const strokeWidth = (parseFloat(document.getElementById('strokeWidth').value) || 0) * scale;
             const strokeColor = document.getElementById('strokeColor').value;
@@ -874,84 +887,70 @@
             const shadowBlur = (parseFloat(document.getElementById('shadowBlur').value) || 0) * scale;
             const shadowSpread = (parseFloat(document.getElementById('shadowSpread').value) || 0) * scale;
 
+            const textContent = document.getElementById('textContent').value || '';
+            const textColor = document.getElementById('textColor').value || '#ffffff';
+            const textX = (parseFloat(document.getElementById('textX').value) || 50) * scale;
+            const textY = (parseFloat(document.getElementById('textY').value) || 50) * scale;
+            const fontSize = (parseFloat(document.getElementById('fontSize').value) || 22) * scale;
+            const fontFamily = document.getElementById('fontFamily') ? document.getElementById('fontFamily').value : 'Inter';
+            const fontWeight = document.getElementById('fontWeight') ? document.getElementById('fontWeight').value : '600';
+
             const rgb = hexToRgb(shadowColorHex);
             const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${shadowOpacity / 100})`;
 
             const w = imgToDraw.width * scaleX * scale;
             const h = imgToDraw.height * scaleY * scale;
 
-            let pts = [{x: 0, y: 0}, {x: w, y: 0}, {x: w, y: h}, {x: 0, y: h}];
-            const cx = w / 2;
-            const cy = h / 2;
-
-            pts = pts.map(p => {
-                let px = p.x - cx;
-                let py = p.y - cy;
-                let py1 = py * Math.cos(rotX);
-                let pz1 = py * Math.sin(rotX);
-                let px2 = px * Math.cos(rotY) + pz1 * Math.sin(rotY);
-                let pz2 = -px * Math.sin(rotY) + pz1 * Math.cos(rotY);
-                const D = 1000 * scale;
-                let perspScale = D / (D - pz2);
-                return { x: px2 * perspScale + cx, y: py1 * perspScale + cy };
-            });
-
-            const minX = Math.min(...pts.map(p => p.x));
-            const minY = Math.min(...pts.map(p => p.y));
-            pts = pts.map(p => ({x: p.x - minX, y: p.y - minY}));
-
-            const bufW = Math.max(...pts.map(p => p.x)) + shadowBlur * 2 + shadowSpread * 2;
-            const bufH = Math.max(...pts.map(p => p.y)) + shadowBlur * 2 + shadowSpread * 2;
-
-            const bufCanvas = document.createElement('canvas');
-            const bufCtx = bufCanvas.getContext('2d');
-            
-            // Force high-quality rendering on the shadow/image buffer too
-            bufCtx.imageSmoothingEnabled = true;
-            bufCtx.imageSmoothingQuality = 'high';
-
-            bufCanvas.width = Math.max(1, bufW);
-            bufCanvas.height = Math.max(1, bufH);
-
-            const offset = shadowBlur + shadowSpread;
-
-            bufCtx.save();
-            bufCtx.translate(offset - minX, offset - minY);
-
-            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)') {
-                bufCtx.shadowColor = canvasShadowColor;
-                bufCtx.shadowBlur = shadowBlur;
-                bufCtx.shadowOffsetX = shadowX;
-                bufCtx.shadowOffsetY = shadowY;
-                bufCtx.fillStyle = canvasShadowColor;
-                bufCtx.fill();
-            }
-
-            bufCtx.beginPath();
-            bufCtx.roundRect(0, 0, w, h, radius);
-            bufCtx.closePath();
-
-            bufCtx.save();
-            bufCtx.clip();
-            bufCtx.drawImage(imgToDraw, 0, 0, w, h);
-            bufCtx.restore();
-
-            if (strokeWidth > 0) {
-                bufCtx.lineWidth = strokeWidth * 2;
-                bufCtx.strokeStyle = strokeColor;
-                bufCtx.stroke();
-            }
-            bufCtx.restore();
-
+            // Draw card on export canvas
             eCtx.save();
             eCtx.translate(posX, posY);
-            eCtx.rotate(rotY * 0.1);
-            eCtx.drawImage(bufCanvas, -offset + minX, -offset + minY);
+            eCtx.transform(1, Math.tan(rotX), Math.tan(rotY), 1, 0, 0);
+            eCtx.rotate(rotZ);
+
+            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)' && shadowBlur > 0) {
+                eCtx.shadowColor = canvasShadowColor;
+                eCtx.shadowBlur = shadowBlur;
+                eCtx.shadowOffsetX = shadowX;
+                eCtx.shadowOffsetY = shadowY;
+            }
+
+            eCtx.beginPath();
+            eCtx.roundRect(0, 0, w, h, radius);
+            eCtx.closePath();
+            eCtx.fillStyle = '#000000';
+            eCtx.fill();
+
+            eCtx.shadowColor = 'transparent';
+            eCtx.shadowBlur = 0;
+            eCtx.shadowOffsetX = 0;
+            eCtx.shadowOffsetY = 0;
+
+            eCtx.save();
+            eCtx.clip();
+            eCtx.drawImage(imgToDraw, 0, 0, w, h);
             eCtx.restore();
+
+            if (strokeWidth > 0) {
+                eCtx.lineWidth = strokeWidth * 2;
+                eCtx.strokeStyle = strokeColor;
+                eCtx.stroke();
+            }
+            eCtx.restore();
+
+            // Draw Text on export canvas (scaled positions/size, zero shadow)
+            if (textContent.trim() !== '') {
+                eCtx.save();
+                eCtx.font = `${fontWeight} ${fontSize}px '${fontFamily}', sans-serif`;
+                eCtx.fillStyle = textColor;
+                eCtx.shadowColor = 'transparent';
+                eCtx.shadowBlur = 0;
+                eCtx.fillText(textContent, textX, textY);
+                eCtx.restore();
+            }
 
             // Trigger download
             const link = document.createElement('a');
-            link.download = 'fancy-post-2000x1200.png';
+            link.download = 'fancy-post-hd.png';
             link.href = exportCanvas.toDataURL('image/png');
             link.click();
         });
