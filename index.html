@@ -420,16 +420,20 @@
 
         <!-- Add this inside your sidebar where you want the Text & Multi-Image controls -->
         <div class="section-title">Insert Text</div>
-        <div class="control-group">
-            <input type="text" id="textContent" placeholder="Type your text here..." style="width:100%; background:#222228; border:1px solid #2f2f38; border-radius:8px; padding:10px 12px; color:#fff; font-size:13px; outline:none; margin-bottom:8px;">
-            <div class="control-row">
-                <div class="control-field" data-input="textX">
-                    <label>Text X</label>
-                    <input type="number" id="textX" value="50">
+        <div class="control-group" style="margin-bottom: 12px;">
+            <input type="text" id="textContent" placeholder="Type your text here..." style="width:100%; background:#18181c; border:1px solid #2f2f38; border-radius:6px; padding:8px 10px; color:#fff; font-size:12px; outline:none; margin-bottom:6px;">
+            <div class="stroke-row" style="margin-top:6px;">
+                <div class="color-picker-wrapper">
+                    <input type="color" id="textColor" value="#ffffff">
+                    <input type="text" id="textColorText" class="color-text" value="#ffffff">
                 </div>
-                <div class="control-field" data-input="textY">
-                    <label>Text Y</label>
-                    <input type="number" id="textY" value="50">
+                <div class="control-field" data-input="textX" title="Text X Position" style="margin-bottom:0;">
+                    <label>X</label>
+                    <input type="number" id="textX" value="30">
+                </div>
+                <div class="control-field" data-input="textY" title="Text Y Position" style="margin-bottom:0;">
+                    <label>Y</label>
+                    <input type="number" id="textY" value="40">
                 </div>
             </div>
         </div>
@@ -548,6 +552,22 @@
             }
         });
 
+        // Sync Text Color Inputs
+        const textColorInput = document.getElementById('textColor');
+        const textColorText = document.getElementById('textColorText');
+
+        textColorInput.addEventListener('input', (e) => {
+            textColorText.value = e.target.value;
+            draw();
+        });
+
+        textColorText.addEventListener('input', (e) => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                textColorInput.value = e.target.value;
+                draw();
+            }
+        });
+
         // Main Draw Function
         // Helper to convert hex to RGB
         function hexToRgb(hex) {
@@ -569,11 +589,11 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
-            // 2. Draw Uploaded / Default Image
-            const imgToDraw = uploadedImg || defaultImg;
+            // 2. Select Image (Multi-upload or Default fallback)
+            const imgToDraw = (uploadedImages.length > 0) ? uploadedImages[currentImageIndex] : defaultImg;
             if (!imgToDraw) return;
 
-            // Gather all input parameters
+            // Gather parameters
             const params = {
                 posX: parseFloat(document.getElementById('posX').value) || 0,
                 posY: parseFloat(document.getElementById('posY').value) || 0,
@@ -589,139 +609,75 @@
                 shadowX: parseFloat(document.getElementById('shadowX').value) || 0,
                 shadowY: parseFloat(document.getElementById('shadowY').value) || 0,
                 shadowBlur: parseFloat(document.getElementById('shadowBlur').value) || 0,
-                shadowSpread: parseFloat(document.getElementById('shadowSpread').value) || 0
+                shadowSpread: parseFloat(document.getElementById('shadowSpread').value) || 0,
+                textContent: document.getElementById('textContent').value || '',
+                textColor: document.getElementById('textColor').value || '#ffffff',
+                textX: parseFloat(document.getElementById('textX').value) || 30,
+                textY: parseFloat(document.getElementById('textY').value) || 40
             };
 
-            // Process Shadow Color (Hex + Opacity)
             const rgb = hexToRgb(params.shadowColorHex);
             const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
 
-            // Base dimensions
             const w = imgToDraw.width * params.scaleX;
             const h = imgToDraw.height * params.scaleY;
 
-            // Calculate Perspective Deformation (Simple projection)
-            const degX = params.rotX;
-            const degY = params.rotY;
+            ctx.save();
+            ctx.translate(params.posX, params.posY);
 
-            // Define the 4 corner points of the rect (pre-transformation)
-            // Points: TopLeft, TopRight, BottomRight, BottomLeft
-            let pts = [
-                {x: 0, y: 0}, 
-                {x: w, y: 0}, 
-                {x: w, y: h}, 
-                {x: 0, y: h}
-            ];
+            // Apply 3D Perspective / Tilt Matrix Transformation
+            ctx.transform(
+                1, Math.tan(params.rotX), 
+                Math.tan(params.rotY), 1, 
+                0, 0
+            );
 
-            // Center point for rotation
-            const cx = w / 2;
-            const cy = h / 2;
-
-            // Apply 3D Rotation Math (Simple projection on 2D plane)
-            pts = pts.map(p => {
-                // Shift to origin
-                let px = p.x - cx;
-                let py = p.y - cy;
-                
-                // Rotate X axis
-                let py1 = py * Math.cos(degX);
-                let pz1 = py * Math.sin(degX);
-                
-                // Rotate Y axis
-                let px2 = px * Math.cos(degY) + pz1 * Math.sin(degY);
-                let pz2 = -px * Math.sin(degY) + pz1 * Math.cos(degY);
-                
-                // Perspective division (D=distance from camera, higher = less perspective)
-                const D = 1000;
-                let scale = D / (D - pz2);
-                
-                return {
-                    x: px2 * scale + cx,
-                    y: py1 * scale + cy
-                };
-            });
-
-            // Recalculate minimum bounds after perspective shift
-            const minX = Math.min(...pts.map(p => p.x));
-            const minY = Math.min(...pts.map(p => p.y));
-            pts = pts.map(p => ({x: p.x - minX, y: p.y - minY})); // Normalize to buffer origin
-
-            // Update bounds for buffer size
-            const bufW = Math.max(...pts.map(p => p.x)) + params.shadowBlur * 2 + params.shadowSpread * 2;
-            const bufH = Math.max(...pts.map(p => p.y)) + params.shadowBlur * 2 + params.shadowSpread * 2;
-
-            // Use a secondary buffer canvas to handle perspective shadow and spread accurately
-            if (!this.bufCanvas) {
-                this.bufCanvas = document.createElement('canvas');
-                this.bufCtx = this.bufCanvas.getContext('2d');
-            }
-            this.bufCanvas.width = Math.max(1, bufW);
-            this.bufCanvas.height = Math.max(1, bufH);
-            this.bufCtx.clearRect(0, 0, this.bufCanvas.width, this.bufCanvas.height);
-
-            const offset = params.shadowBlur + params.shadowSpread;
-
-            // Function to generate the shaped path on a context
-            function createShapedPath(ctx, p, r) {
-                // Vector math to define a path between arbitrary perspective points is difficult
-                // For this implementation, we map back to original space to create roundrect
-                // Then transform the context.
+            // Drop Shadow applied to the card shape body
+            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)' && params.shadowBlur > 0) {
+                ctx.shadowColor = canvasShadowColor;
+                ctx.shadowBlur = params.shadowBlur;
+                ctx.shadowOffsetX = params.shadowX;
+                ctx.shadowOffsetY = params.shadowY;
             }
 
-            // We must transform the entire context to match perspective, then draw the rounded rectangle
-            this.bufCtx.save();
-            this.bufCtx.translate(offset - minX, offset - minY); // Offset to buffer origin
+            // Draw base shape for shadow casting
+            ctx.beginPath();
+            ctx.roundRect(0, 0, w, h, params.radius);
+            ctx.closePath();
+            ctx.fillStyle = '#000000';
+            ctx.fill();
 
-            // Draw FIGMA STYLE Shadow First
-            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)') {
-                this.bufCtx.shadowColor = canvasShadowColor;
-                this.bufCtx.shadowBlur = params.shadowBlur;
-                this.bufCtx.shadowOffsetX = params.shadowX;
-                this.bufCtx.shadowOffsetY = params.shadowY;
-                
-                // Figma "Spread" emulation (draws shadow larger than shape)
-                this.bufCtx.fillStyle = canvasShadowColor; 
-                this.bufCtx.fill(); // Fills the path with shadow activated
+            // Reset shadow so image contents and text don't blur heavily
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            // Clip and draw image inside rounded rect
+            ctx.save();
+            ctx.clip();
+            ctx.drawImage(imgToDraw, 0, 0, w, h);
+
+            // Render Inserted Text with custom color and X/Y coordinates
+            if (params.textContent.trim() !== '') {
+                ctx.font = '600 22px sans-serif';
+                ctx.fillStyle = params.textColor;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(params.textContent, params.textX, params.textY);
             }
-
-            // Define original rounded rectangle shape
-            this.bufCtx.beginPath();
-            this.bufCtx.roundRect(0, 0, w, h, params.radius);
-            this.bufCtx.closePath();
-
-            // Clip and draw image (Applying perspective deformation to image itself)
-            this.bufCtx.save();
-            this.bufCtx.clip();
-            this.bufCtx.drawImage(imgToDraw, 0, 0, w, h);
-            this.bufCtx.restore();
+            ctx.restore();
 
             // Draw Stroke / Border
             if (params.strokeWidth > 0) {
-                this.bufCtx.lineWidth = params.strokeWidth * 2;
-                this.bufCtx.strokeStyle = params.strokeColor;
-                this.bufCtx.stroke();
+                ctx.lineWidth = params.strokeWidth * 2;
+                ctx.strokeStyle = params.strokeColor;
+                ctx.stroke();
             }
-
-            this.bufCtx.restore();
-
-            // 3. Draw the final composed buffer canvas onto the main background
-            ctx.save();
-            // Need to handle perspective mapping *here* - standard drawImage won't work.
-            // Full perspective texture mapping is beyond basic 2D Canvas.
-            // Standard approach: Draw the buffer at original position, 
-            // but the shadow is cast from the 3D transformed buffer shape.
-
-            // Since full image perspective mapping is too complex for canvas2d without webgl,
-            // we will draw the composed, rounded, shadowed image onto the canvas 
-            // while applying standard 2D rotation for pseudo-perspective.
-            
-            ctx.translate(params.posX, params.posY);
-            ctx.rotate(params.rotY * 0.1); // Simple 2D skew fallback
-            ctx.drawImage(this.bufCanvas, -offset + minX, -offset + minY);
 
             ctx.restore();
         }
-
+        
         // Horizontal Drag Scrubbing
         document.querySelectorAll('.control-field, .full-field').forEach(field => {
             const input = field.querySelector('input');
@@ -780,7 +736,7 @@
         // Update your fileInput event listener for multi-upload:
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const files = e.target.files;
-            if (files.length > 0) {
+            if (files && files.length > 0) {
                 Array.from(files).forEach(file => {
                     const reader = new FileReader();
                     reader.onload = function(event) {
