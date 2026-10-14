@@ -481,13 +481,7 @@
         // Default test image (gradient placeholder if no upload yet)
         const defaultImg = new Image();
         defaultImg.crossOrigin = "anonymous";
-        defaultImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
-                <rect width="600" height="400" fill="#1e1e24"/>
-                <rect x="40" y="40" width="520" height="320" fill="#2d2d38"/>
-                <text x="300" y="215" fill="#ffffff" font-family="sans-serif" font-size="20" font-weight="600" text-anchor="middle">Upload your image to start</text>
-            </svg>
-        `);
+        defaultImg.src = "default.png"
         defaultImg.onload = () => draw();
 
         // Background Theme Thumbnails Generation (Procedural Preview BGs matching reference)
