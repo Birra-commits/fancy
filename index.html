@@ -848,15 +848,14 @@
         // High-Resolution 1080p Export PNG
         // High-Resolution Proportional Export (2000x1200)
         // Clean Offscreen 2000x1200 Export (Does not touch preview canvas)
+        // Perfect Proportional 2000x1200 Export using Context Scaling
         document.getElementById('exportBtn').addEventListener('click', () => {
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = 2000;
             exportCanvas.height = 1200;
             const eCtx = exportCanvas.getContext('2d');
 
-            const scaleFactor = 2; // 2000px / 1000px preview ratio
-
-            // 1. Draw Background on export canvas
+            // 1. Draw Background to fill the full 2000x1200 export canvas
             if (bgImages[currentBgIndex]) {
                 eCtx.drawImage(bgImages[currentBgIndex], 0, 0, exportCanvas.width, exportCanvas.height);
             } else {
@@ -864,26 +863,33 @@
                 eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
             }
 
-            // 2. Gather parameters scaled up by 2x for high resolution
+            // 2. Scale the export context by 2x so all 1000x600 coordinates match 2000x1200 perfectly
+            eCtx.save();
+            eCtx.scale(2, 2);
+
+            // Gather current preview parameters directly
             const imgToDraw = uploadedImg || defaultImg;
-            if (!imgToDraw) return;
+            if (!imgToDraw) {
+                eCtx.restore();
+                return;
+            }
 
             const params = {
-                posX: (parseFloat(document.getElementById('posX').value) || 0) * scaleFactor,
-                posY: (parseFloat(document.getElementById('posY').value) || 0) * scaleFactor,
+                posX: parseFloat(document.getElementById('posX').value) || 0,
+                posY: parseFloat(document.getElementById('posY').value) || 0,
                 scaleX: (parseFloat(document.getElementById('scaleX').value) || 70) / 100,
                 scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
                 rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
                 rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
-                radius: (parseFloat(document.getElementById('cornerRadius').value) || 0) * scaleFactor,
-                strokeWidth: (parseFloat(document.getElementById('strokeWidth').value) || 0) * scaleFactor,
+                radius: parseFloat(document.getElementById('cornerRadius').value) || 0,
+                strokeWidth: parseFloat(document.getElementById('strokeWidth').value) || 0,
                 strokeColor: document.getElementById('strokeColor').value,
                 shadowColorHex: document.getElementById('shadowColor').value,
                 shadowOpacity: parseFloat(document.getElementById('shadowOpacity').value) || 25,
-                shadowX: (parseFloat(document.getElementById('shadowX').value) || 0) * scaleFactor,
-                shadowY: (parseFloat(document.getElementById('shadowY').value) || 0) * scaleFactor,
-                shadowBlur: (parseFloat(document.getElementById('shadowBlur').value) || 0) * scaleFactor,
-                shadowSpread: (parseFloat(document.getElementById('shadowSpread').value) || 0) * scaleFactor
+                shadowX: parseFloat(document.getElementById('shadowX').value) || 0,
+                shadowY: parseFloat(document.getElementById('shadowY').value) || 0,
+                shadowBlur: parseFloat(document.getElementById('shadowBlur').value) || 0,
+                shadowSpread: parseFloat(document.getElementById('shadowSpread').value) || 0
             };
 
             const rgb = hexToRgb(params.shadowColorHex);
@@ -905,7 +911,7 @@
                 let pz1 = py * Math.sin(degX);
                 let px2 = px * Math.cos(degY) + pz1 * Math.sin(degY);
                 let pz2 = -px * Math.sin(degY) + pz1 * Math.cos(degY);
-                const D = 1000 * scaleFactor;
+                const D = 1000;
                 let scale = D / (D - pz2);
                 return { x: px2 * scale + cx, y: py1 * scale + cy };
             });
@@ -952,13 +958,13 @@
             }
             bufCtx.restore();
 
-            eCtx.save();
             eCtx.translate(params.posX, params.posY);
             eCtx.rotate(params.rotY * 0.1);
             eCtx.drawImage(bufCanvas, -offset + minX, -offset + minY);
-            eCtx.restore();
+            
+            eCtx.restore(); // Restore context scale
 
-            // Trigger download from the clean high-res export canvas
+            // Trigger download
             const link = document.createElement('a');
             link.download = 'fancy-post-2000x1200.png';
             link.href = exportCanvas.toDataURL('image/png');
