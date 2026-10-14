@@ -849,13 +849,16 @@
         // High-Resolution Proportional Export (2000x1200)
         // Clean Offscreen 2000x1200 Export (Does not touch preview canvas)
         // Perfect Proportional 2000x1200 Export using Context Scaling
+        // Fully Proportional 2000x1200 Export
         document.getElementById('exportBtn').addEventListener('click', () => {
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = 2000;
             exportCanvas.height = 1200;
             const eCtx = exportCanvas.getContext('2d');
 
-            // 1. Draw Background to fill the full 2000x1200 export canvas
+            const scale = 2; // Scale factor from 1000x600 to 2000x1200
+
+            // 1. Draw Background Theme
             if (bgImages[currentBgIndex]) {
                 eCtx.drawImage(bgImages[currentBgIndex], 0, 0, exportCanvas.width, exportCanvas.height);
             } else {
@@ -863,87 +866,77 @@
                 eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
             }
 
-            // 2. Scale the export context by 2x so all 1000x600 coordinates match 2000x1200 perfectly
-            eCtx.save();
-            eCtx.scale(2, 2);
-
-            // Gather current preview parameters directly
+            // 2. Gather parameters and scale ALL values by 2x for exact proportionality
             const imgToDraw = uploadedImg || defaultImg;
-            if (!imgToDraw) {
-                eCtx.restore();
-                return;
-            }
+            if (!imgToDraw) return;
 
-            const params = {
-                posX: parseFloat(document.getElementById('posX').value) || 0,
-                posY: parseFloat(document.getElementById('posY').value) || 0,
-                scaleX: (parseFloat(document.getElementById('scaleX').value) || 70) / 100,
-                scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
-                rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
-                rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
-                radius: parseFloat(document.getElementById('cornerRadius').value) || 0,
-                strokeWidth: parseFloat(document.getElementById('strokeWidth').value) || 0,
-                strokeColor: document.getElementById('strokeColor').value,
-                shadowColorHex: document.getElementById('shadowColor').value,
-                shadowOpacity: parseFloat(document.getElementById('shadowOpacity').value) || 25,
-                shadowX: parseFloat(document.getElementById('shadowX').value) || 0,
-                shadowY: parseFloat(document.getElementById('shadowY').value) || 0,
-                shadowBlur: parseFloat(document.getElementById('shadowBlur').value) || 0,
-                shadowSpread: parseFloat(document.getElementById('shadowSpread').value) || 0
-            };
+            const posX = (parseFloat(document.getElementById('posX').value) || 0) * scale;
+            const posY = (parseFloat(document.getElementById('posY').value) || 0) * scale;
+            const scaleX = (parseFloat(document.getElementById('scaleX').value) || 70) / 100;
+            const scaleY = (parseFloat(document.getElementById('scaleY').value) || 70) / 100;
+            const rotX = (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180);
+            const rotY = (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180);
+            const radius = (parseFloat(document.getElementById('cornerRadius').value) || 0) * scale;
+            const strokeWidth = (parseFloat(document.getElementById('strokeWidth').value) || 0) * scale;
+            const strokeColor = document.getElementById('strokeColor').value;
+            const shadowColorHex = document.getElementById('shadowColor').value;
+            const shadowOpacity = parseFloat(document.getElementById('shadowOpacity').value) || 25;
+            const shadowX = (parseFloat(document.getElementById('shadowX').value) || 0) * scale;
+            const shadowY = (parseFloat(document.getElementById('shadowY').value) || 0) * scale;
+            const shadowBlur = (parseFloat(document.getElementById('shadowBlur').value) || 0) * scale;
+            const shadowSpread = (parseFloat(document.getElementById('shadowSpread').value) || 0) * scale;
 
-            const rgb = hexToRgb(params.shadowColorHex);
-            const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
+            const rgb = hexToRgb(shadowColorHex);
+            const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${shadowOpacity / 100})`;
 
-            const w = imgToDraw.width * params.scaleX;
-            const h = imgToDraw.height * params.scaleY;
+            // Scale image dimensions by 2 so it occupies the exact same relative size
+            const w = imgToDraw.width * scaleX * scale;
+            const h = imgToDraw.height * scaleY * scale;
 
             let pts = [{x: 0, y: 0}, {x: w, y: 0}, {x: w, y: h}, {x: 0, y: h}];
             const cx = w / 2;
             const cy = h / 2;
-            const degX = params.rotX;
-            const degY = params.rotY;
 
             pts = pts.map(p => {
                 let px = p.x - cx;
                 let py = p.y - cy;
-                let py1 = py * Math.cos(degX);
-                let pz1 = py * Math.sin(degX);
-                let px2 = px * Math.cos(degY) + pz1 * Math.sin(degY);
-                let pz2 = -px * Math.sin(degY) + pz1 * Math.cos(degY);
-                const D = 1000;
-                let scale = D / (D - pz2);
-                return { x: px2 * scale + cx, y: py1 * scale + cy };
+                let py1 = py * Math.cos(rotX);
+                let pz1 = py * Math.sin(rotX);
+                let px2 = px * Math.cos(rotY) + pz1 * Math.sin(rotY);
+                let pz2 = -px * Math.sin(rotY) + pz1 * Math.cos(rotY);
+                const D = 1000 * scale; // Scale camera distance to match 2x proportions
+                let perspScale = D / (D - pz2);
+                return { x: px2 * perspScale + cx, y: py1 * perspScale + cy };
             });
 
             const minX = Math.min(...pts.map(p => p.x));
             const minY = Math.min(...pts.map(p => p.y));
             pts = pts.map(p => ({x: p.x - minX, y: p.y - minY}));
 
-            const bufW = Math.max(...pts.map(p => p.x)) + params.shadowBlur * 2 + params.shadowSpread * 2;
-            const bufH = Math.max(...pts.map(p => p.y)) + params.shadowBlur * 2 + params.shadowSpread * 2;
+            const bufW = Math.max(...pts.map(p => p.x)) + shadowBlur * 2 + shadowSpread * 2;
+            const bufH = Math.max(...pts.map(p => p.y)) + shadowBlur * 2 + shadowSpread * 2;
 
             const bufCanvas = document.createElement('canvas');
             const bufCtx = bufCanvas.getContext('2d');
             bufCanvas.width = Math.max(1, bufW);
             bufCanvas.height = Math.max(1, bufH);
 
-            const offset = params.shadowBlur + params.shadowSpread;
+            const offset = shadowBlur + shadowSpread;
 
             bufCtx.save();
             bufCtx.translate(offset - minX, offset - minY);
 
             if (canvasShadowColor !== 'rgba(0, 0, 0, 0)') {
                 bufCtx.shadowColor = canvasShadowColor;
-                bufCtx.shadowBlur = params.shadowBlur;
-                bufCtx.shadowOffsetX = params.shadowX;
-                bufCtx.shadowOffsetY = params.shadowY;
+                bufCtx.shadowBlur = shadowBlur;
+                bufCtx.shadowOffsetX = shadowX;
+                bufCtx.shadowOffsetY = shadowY;
                 bufCtx.fillStyle = canvasShadowColor;
                 bufCtx.fill();
             }
 
             bufCtx.beginPath();
-            bufCtx.roundRect(0, 0, w, h, params.radius);
+            bufCtx.roundRect(0, 0, w, h, radius);
             bufCtx.closePath();
 
             bufCtx.save();
@@ -951,18 +944,18 @@
             bufCtx.drawImage(imgToDraw, 0, 0, w, h);
             bufCtx.restore();
 
-            if (params.strokeWidth > 0) {
-                bufCtx.lineWidth = params.strokeWidth * 2;
-                bufCtx.strokeStyle = params.strokeColor;
+            if (strokeWidth > 0) {
+                bufCtx.lineWidth = strokeWidth * 2;
+                bufCtx.strokeStyle = strokeColor;
                 bufCtx.stroke();
             }
             bufCtx.restore();
 
-            eCtx.translate(params.posX, params.posY);
-            eCtx.rotate(params.rotY * 0.1);
+            eCtx.save();
+            eCtx.translate(posX, posY);
+            eCtx.rotate(rotY * 0.1);
             eCtx.drawImage(bufCanvas, -offset + minX, -offset + minY);
-            
-            eCtx.restore(); // Restore context scale
+            eCtx.restore();
 
             // Trigger download
             const link = document.createElement('a');
