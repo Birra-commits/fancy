@@ -17,7 +17,8 @@
             color: #ffffff;
             display: flex;
             height: 100vh;
-            overflow: hidden;
+            overflow: hidden !important;
+            margin: 0;
         }
 
         /* Main Preview Canvas Area */
@@ -70,6 +71,11 @@
             max-width: 100%;
             box-sizing: border-box;
             overflow-x: hidden;
+            overflow-y: auto;
+            scrollbar-width: none; /* chrome, edge */
+        }
+        .sidebar::-webkit-scrollbar, .control-panel::-webkit-scrollbar, .panel::-webkit-scrollbar {
+            display: none; /* Safari and Chrome */
         }
         .stroke-row, .control-row {
             flex-wrap: nowrap;
@@ -396,6 +402,10 @@
                 <label>3D-Y</label>
                 <input type="number" id="rotateY" value="0">
             </div>
+            <div class="control-field" data-input="rotateZ" title="Z-Axis Rotation">
+                <label>Rot-Z</label>
+                <input type="number" id="rotateZ" value="0">
+            </div>
         </div>
 
         <div class="section-title">Drop Shadow</div>
@@ -430,26 +440,32 @@
             </div>
         </div>
 
-        <!-- Add this inside your sidebar where you want the Text & Multi-Image controls -->
+        <!-- Reorganized Insert Text Section -->
         <div class="section-title">Insert Text</div>
         <div class="control-group" style="margin-bottom: 12px;">
-            <input type="text" id="textContent" placeholder="Type your text here..." style="width:100%; background:#18181c; border:1px solid #2f2f38; border-radius:6px; padding:8px 10px; color:#fff; font-size:12px; outline:none; margin-bottom:6px;">
-            <div class="stroke-row" style="margin-top:6px;">
-                <div class="color-picker-wrapper">
+            <input type="text" id="textContent" placeholder="Type your text here..." style="width:100%; background:#18181c; border:1px solid #2f2f38; border-radius:6px; padding:8px 10px; color:#fff; font-size:12px; outline:none; margin-bottom:8px; box-sizing:border-box;">
+            
+            <!-- Text Color & Font Size Row (Stacked to prevent overflow) -->
+            <div style="display: flex; gap: 8px; margin-bottom: 8px; width: 100%;">
+                <div class="color-picker-wrapper" style="flex: 1;">
                     <input type="color" id="textColor" value="#ffffff">
                     <input type="text" id="textColorText" class="color-text" value="#ffffff">
                 </div>
-                <div class="control-field" data-input="textX" title="Text X Position" style="margin-bottom:0;">
-                    <label>X</label>
-                    <input type="number" id="textX" value="30">
-                </div>
-                <div class="control-field" data-input="textY" title="Text Y Position" style="margin-bottom:0;">
-                    <label>Y</label>
-                    <input type="number" id="textY" value="40">
-                </div>
-                <div class="control-field" data-input="fontSize" title="Font Size" style="margin-bottom:0;">
+                <div class="control-field" style="flex: 1; margin-bottom:0;">
                     <label>Size</label>
-                    <input type="number" id="fontSize" value="22">
+                    <input type="number" id="fontSize" value="28">
+                </div>
+            </div>
+
+            <!-- Text X & Y Coordinates Row -->
+            <div class="control-row" style="display: flex; gap: 8px; width: 100%;">
+                <div class="control-field" data-input="textX" style="flex: 1; margin-bottom:0;">
+                    <label>X</label>
+                    <input type="number" id="textX" value="60">
+                </div>
+                <div class="control-field" data-input="textY" style="flex: 1; margin-bottom:0;">
+                    <label>Y</label>
+                    <input type="number" id="textY" value="60">
                 </div>
             </div>
         </div>
@@ -552,6 +568,7 @@
             });
         }
 
+
         // Sync Shadow Color Inputs
         const shadowColorInput = document.getElementById('shadowColor');
         const shadowColorText = document.getElementById('shadowColorText');
@@ -568,19 +585,28 @@
             }
         });
 
-        // Sync Text Color Inputs
+        // 2. Sync Text Color inputs
         const textColorInput = document.getElementById('textColor');
         const textColorText = document.getElementById('textColorText');
-
-        textColorInput.addEventListener('input', (e) => {
-            textColorText.value = e.target.value;
-            draw();
-        });
-
-        textColorText.addEventListener('input', (e) => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                textColorInput.value = e.target.value;
+        if (textColorInput && textColorText) {
+            textColorInput.addEventListener('input', (e) => {
+                textColorText.value = e.target.value;
                 draw();
+            });
+            textColorText.addEventListener('input', (e) => {
+                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                    textColorInput.value = e.target.value;
+                    draw();
+                }
+            });
+        }
+
+        // 3. Attach input listeners to ALL text and rotation controls so they update instantly
+        const liveInputIds = ['textContent', 'textX', 'textY', 'fontSize', 'rotateZ'];
+        liveInputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', draw);
             }
         });
 
@@ -595,21 +621,22 @@
 
         // Main Draw Function with 3D Perspective and Figma Shadow support
         function draw() {
+            if (!ctx) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 1. Draw Background Theme
-            if (bgImages[currentBgIndex]) {
+            if (bgImages && bgImages[currentBgIndex]) {
                 ctx.drawImage(bgImages[currentBgIndex], 0, 0, canvas.width, canvas.height);
             } else {
                 ctx.fillStyle = '#222';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
-            // 2. Select Active Image from Multi-Upload array
+            // 2. Active Image (Multi-upload fallback to default)
             const imgToDraw = (uploadedImages.length > 0) ? uploadedImages[currentImageIndex] : defaultImg;
             if (!imgToDraw) return;
 
-            // Gather parameters including Z-Axis and Typography
+            // Gather Parameters
             const params = {
                 posX: parseFloat(document.getElementById('posX').value) || 0,
                 posY: parseFloat(document.getElementById('posY').value) || 0,
@@ -617,23 +644,21 @@
                 scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
                 rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
                 rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
-                rotZ: (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180), // Added Z-Axis
+                rotZ: (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180), // Z-Axis
                 radius: parseFloat(document.getElementById('cornerRadius').value) || 0,
                 strokeWidth: parseFloat(document.getElementById('strokeWidth').value) || 0,
-                strokeColor: document.getElementById('strokeColor').value,
-                shadowColorHex: document.getElementById('shadowColor').value,
-                shadowOpacity: parseFloat(document.getElementById('shadowOpacity').value) || 25,
-                shadowX: parseFloat(document.getElementById('shadowX').value) || 0,
-                shadowY: parseFloat(document.getElementById('shadowY').value) || 0,
-                shadowBlur: parseFloat(document.getElementById('shadowBlur').value) || 0,
-                shadowSpread: parseFloat(document.getElementById('shadowSpread').value) || 0,
-                textContent: document.getElementById('textContent').value || '',
-                textColor: document.getElementById('textColor').value || '#ffffff',
-                textX: parseFloat(document.getElementById('textX').value) || 50,
-                textY: parseFloat(document.getElementById('textY').value) || 50,
-                fontSize: parseFloat(document.getElementById('fontSize').value) || 22,
-                fontFamily: document.getElementById('fontFamily') ? document.getElementById('fontFamily').value : 'Inter',
-                fontWeight: document.getElementById('fontWeight') ? document.getElementById('fontWeight').value : '600'
+                strokeColor: document.getElementById('strokeColor')?.value || '#ffffff',
+                shadowColorHex: document.getElementById('shadowColor')?.value || '#000000',
+                shadowOpacity: parseFloat(document.getElementById('shadowOpacity')?.value) || 25,
+                shadowX: parseFloat(document.getElementById('shadowX')?.value) || 0,
+                shadowY: parseFloat(document.getElementById('shadowY')?.value) || 0,
+                shadowBlur: parseFloat(document.getElementById('shadowBlur')?.value) || 0,
+                shadowSpread: parseFloat(document.getElementById('shadowSpread')?.value) || 0,
+                textContent: document.getElementById('textContent')?.value || '',
+                textColor: document.getElementById('textColor')?.value || '#ffffff',
+                textX: parseFloat(document.getElementById('textX')?.value) || 60,
+                textY: parseFloat(document.getElementById('textY')?.value) || 60,
+                fontSize: parseFloat(document.getElementById('fontSize')?.value) || 28
             };
 
             const rgb = hexToRgb(params.shadowColorHex);
@@ -646,12 +671,8 @@
             ctx.save();
             ctx.translate(params.posX, params.posY);
 
-            // Apply 3D Perspective Matrix + Z-Axis rotation
-            ctx.transform(
-                1, Math.tan(params.rotX), 
-                Math.tan(params.rotY), 1, 
-                0, 0
-            );
+            // Apply 3D Perspective + Z-Axis rotation
+            ctx.transform(1, Math.tan(params.rotX), Math.tan(params.rotY), 1, 0, 0);
             ctx.rotate(params.rotZ);
 
             if (canvasShadowColor !== 'rgba(0, 0, 0, 0)' && params.shadowBlur > 0) {
@@ -682,16 +703,17 @@
                 ctx.strokeStyle = params.strokeColor;
                 ctx.stroke();
             }
-            ctx.restore(); // End of Card block
+            ctx.restore(); // End Card Block
 
-            // --- DRAW TEXT (Completely Independent Position, NO Shadow, Google Font & Weight) ---
+            // --- DRAW TEXT (Independent Position, Zero Shadow, Crisp Flat Render) ---
             if (params.textContent.trim() !== '') {
                 ctx.save();
-                // Text uses absolute screen coordinates (independent of card position)
-                ctx.font = `${params.fontWeight} ${params.fontSize}px '${params.fontFamily}', sans-serif`;
+                ctx.font = `600 ${params.fontSize}px sans-serif`;
                 ctx.fillStyle = params.textColor;
-                ctx.shadowColor = 'transparent'; // NO text shadow
+                ctx.shadowColor = 'transparent';
                 ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
                 ctx.fillText(params.textContent, params.textX, params.textY);
                 ctx.restore();
             }
@@ -759,24 +781,27 @@
 
         // File Upload Handler
         // Update your fileInput event listener for multi-upload:
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const files = e.target.files;
-            if (files && files.length > 0) {
-                Array.from(files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const img = new Image();
-                        img.onload = function() {
-                            uploadedImages.push(img);
-                            currentImageIndex = uploadedImages.length - 1;
-                            draw();
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    Array.from(files).forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const img = new Image();
+                            img.onload = function() {
+                                uploadedImages.push(img);
+                                currentImageIndex = uploadedImages.length - 1;
+                                draw();
+                            };
+                            img.src = event.target.result;
                         };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-        });
+                        reader.readAsDataURL(file);
+                    });
+                }
+            });
+        }
 
         // Sync Color Inputs
         const strokeColorInput = document.getElementById('strokeColor');
