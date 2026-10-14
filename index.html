@@ -418,6 +418,22 @@
             </div>
         </div>
 
+        <!-- Add this inside your sidebar where you want the Text & Multi-Image controls -->
+        <div class="section-title">Insert Text</div>
+        <div class="control-group">
+            <input type="text" id="textContent" placeholder="Type your text here..." style="width:100%; background:#222228; border:1px solid #2f2f38; border-radius:8px; padding:10px 12px; color:#fff; font-size:13px; outline:none; margin-bottom:8px;">
+            <div class="control-row">
+                <div class="control-field" data-input="textX">
+                    <label>Text X</label>
+                    <input type="number" id="textX" value="50">
+                </div>
+                <div class="control-field" data-input="textY">
+                    <label>Text Y</label>
+                    <input type="number" id="textY" value="50">
+                </div>
+            </div>
+        </div>
+
         <div class="section-title">Corner Radius</div>
         <div class="full-field" data-input="cornerRadius">
             <label>Radius</label>
@@ -438,7 +454,7 @@
 
         <!-- Upload & Export -->
         <div class="upload-section">
-            <input type="file" id="fileInput" accept="image/*">
+            <input type="file" id="fileInput" accept="image/*" multiple>
             <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Upload Image</button>
             <button class="btn-export" id="exportBtn">Export PNG</button>
         </div>
@@ -451,7 +467,8 @@
         // State variables
         let currentBgIndex = 0;
         let bgImages = [];
-        let uploadedImg = null;
+        let uploadedImages = [];
+        let currentImageIndex = 0;
 
         // Default test image (gradient placeholder if no upload yet)
         const defaultImg = new Image();
@@ -760,24 +777,23 @@
         });
 
         // File Upload Handler
+        // Update your fileInput event listener for multi-upload:
         document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.onload = function() {
-                        uploadedImg = img;
-                        // Auto set scale to fit nicely if first upload
-                        document.getElementById('posX').value = Math.round((canvas.width - img.width * 0.7) / 2);
-                        document.getElementById('posY').value = Math.round((canvas.height - img.height * 0.7) / 2);
-                        document.getElementById('scaleX').value = 70;
-                        document.getElementById('scaleY').value = 70;
-                        draw();
-                    }
-                    img.src = event.target.result;
-                }
-                reader.readAsDataURL(file);
+            const files = e.target.files;
+            if (files.length > 0) {
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.onload = function() {
+                            uploadedImages.push(img);
+                            currentImageIndex = uploadedImages.length - 1;
+                            draw();
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
             }
         });
 
