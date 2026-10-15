@@ -721,24 +721,27 @@
             // --- DRAW TEXT (Independent Position, Zero Shadow, Crisp Flat Render) ---
             // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
             // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
+            // --- DRAW TEXT (Independent by default, snaps above image when checked) ---
             if (params.textContent.trim() !== '') {
                 ctx.save();
                 
                 const isAboveElement = document.getElementById('textAbove');
                 const isAbove = isAboveElement ? isAboveElement.checked : false;
                 
-                const textGap = parseFloat(document.getElementById('textY').value) || 30; 
-                const textOffsetX = parseFloat(document.getElementById('textX').value) || 0;
+                // Get independent text X and Y input values
+                const textX = parseFloat(document.getElementById('textX')?.value) || 60;
+                const textY = parseFloat(document.getElementById('textY')?.value) || 60;
+                const textGap = 25; // Spacing above the card when checkbox is checked
 
-                let finalX = params.posX + textOffsetX;
+                let finalX = textX;
                 let finalY;
 
                 if (isAbove) {
-                    // Positioned above the top edge of the card
+                    // When "Above image" is checked, lock text directly above the card's top edge
                     finalY = params.posY - textGap;
                 } else {
-                    // Positioned below the bottom edge of the card
-                    finalY = params.posY + h + textGap;
+                    // When unchecked, text stays completely independent at its own Y coordinate (image position won't affect it)
+                    finalY = textY;
                 }
 
                 ctx.font = `600 ${params.fontSize}px sans-serif`;
