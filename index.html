@@ -447,7 +447,7 @@
             
             <!-- Checkbox for Above Image -->
             <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                <input type="checkbox" id="textAbove" style="accent-color: #6366f1; cursor: pointer;">
+                <input type="checkbox" id="textAbove" style="accent-color: #18181C; cursor: pointer;">
                 <label for="textAbove" style="font-size: 12px; color: #a1a1aa; cursor: pointer;">Above image</label>
             </div>
 
@@ -617,6 +617,12 @@
             }
         });
 
+        // Put the textAbove listener right here with them:
+        const textAboveEl = document.getElementById('textAbove');
+        if (textAboveEl) {
+            textAboveEl.addEventListener('change', draw);
+        }
+
         // Main Draw Function
         // Helper to convert hex to RGB
         function hexToRgb(hex) {
@@ -714,10 +720,13 @@
 
             // --- DRAW TEXT (Independent Position, Zero Shadow, Crisp Flat Render) ---
             // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
+            // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
             if (params.textContent.trim() !== '') {
                 ctx.save();
                 
-                const isAbove = document.getElementById('textAbove') ? document.getElementById('textAbove').checked : false;
+                const isAboveElement = document.getElementById('textAbove');
+                const isAbove = isAboveElement ? isAboveElement.checked : false;
+                
                 const textGap = parseFloat(document.getElementById('textY').value) || 30; 
                 const textOffsetX = parseFloat(document.getElementById('textX').value) || 0;
 
