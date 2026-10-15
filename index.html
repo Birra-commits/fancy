@@ -370,15 +370,15 @@
             <!-- Populated via JavaScript -->
         </div>
 
-        <div class="section-title">Image Position</div>
+        <div class="section-title">Position</div>
         <div class="control-row">
             <div class="control-field" data-input="posX">
                 <label>X</label>
-                <input type="number" id="posX" value="150">
+                <input type="number" id="posX" value="100">
             </div>
             <div class="control-field" data-input="posY">
                 <label>Y</label>
-                <input type="number" id="posY" value="150">
+                <input type="number" id="posY" value="80">
             </div>
         </div>
 
@@ -386,17 +386,17 @@
         <div class="control-row">
             <div class="control-field" data-input="scaleX" title="Scale (X %)">
                 <label>Scale-X</label>
-                <input type="number" id="scaleX" value="75">
+                <input type="number" id="scaleX" value="70">
             </div>
             <div class="control-field" data-input="scaleY" title="Scale (Y %)">
                 <label>Scale-Y</label>
-                <input type="number" id="scaleY" value="75">
+                <input type="number" id="scaleY" value="70">
             </div>
         </div>
         <div class="control-row">
             <div class="control-field" data-input="rotateX" title="3D Rotate X (Perspective)">
                 <label>3D-X</label>
-                <input type="number" id="rotateX" value="0">
+                <input type="number" id="rotateX" value="15">
             </div>
             <div class="control-field" data-input="rotateY" title="3D Rotate Y (Perspective)">
                 <label>3D-Y</label>
@@ -445,7 +445,13 @@
         <div class="control-group" style="margin-bottom: 12px;">
             <input type="text" id="textContent" placeholder="Type your text here..." style="width:100%; background:#18181c; border:1px solid #2f2f38; border-radius:6px; padding:8px 10px; color:#fff; font-size:12px; outline:none; margin-bottom:8px; box-sizing:border-box;">
             
-            <!-- Text Color & Font Size Row (Stacked to prevent overflow) -->
+            <!-- Checkbox for Above Image -->
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="textAbove" style="accent-color: #6366f1; cursor: pointer;">
+                <label for="textAbove" style="font-size: 12px; color: #a1a1aa; cursor: pointer;">Above image</label>
+            </div>
+
+            <!-- Text Color & Font Size Row -->
             <div style="display: flex; gap: 8px; margin-bottom: 8px; width: 100%;">
                 <div class="color-picker-wrapper" style="flex: 1;">
                     <input type="color" id="textColor" value="#ffffff">
@@ -457,15 +463,15 @@
                 </div>
             </div>
 
-            <!-- Text X & Y Coordinates Row -->
+            <!-- Text X Offset & Y Gap Row -->
             <div class="control-row" style="display: flex; gap: 8px; width: 100%;">
                 <div class="control-field" data-input="textX" style="flex: 1; margin-bottom:0;">
-                    <label>X</label>
-                    <input type="number" id="textX" value="60">
+                    <label>X Offset</label>
+                    <input type="number" id="textX" value="0">
                 </div>
                 <div class="control-field" data-input="textY" style="flex: 1; margin-bottom:0;">
-                    <label>Y</label>
-                    <input type="number" id="textY" value="60">
+                    <label>Gap Y</label>
+                    <input type="number" id="textY" value="30">
                 </div>
             </div>
         </div>
@@ -473,7 +479,7 @@
         <div class="section-title">Corner Radius</div>
         <div class="full-field" data-input="cornerRadius">
             <label>Radius</label>
-            <input type="number" id="cornerRadius" value="10">
+            <input type="number" id="cornerRadius" value="50">
         </div>
 
         <div class="section-title">Stroke</div>
@@ -602,11 +608,12 @@
         }
 
         // 3. Attach input listeners to ALL text and rotation controls so they update instantly
-        const liveInputIds = ['textContent', 'textX', 'textY', 'fontSize', 'rotateZ'];
+        const liveInputIds = ['textContent', 'textX', 'textY', 'fontSize', 'rotateZ', 'textAbove'];
         liveInputIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.addEventListener('input', draw);
+                el.addEventListener('change', draw); // 'change' handles checkbox toggles reliably
             }
         });
 
@@ -706,15 +713,33 @@
             ctx.restore(); // End Card Block
 
             // --- DRAW TEXT (Independent Position, Zero Shadow, Crisp Flat Render) ---
+            // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
             if (params.textContent.trim() !== '') {
                 ctx.save();
+                
+                const isAbove = document.getElementById('textAbove') ? document.getElementById('textAbove').checked : false;
+                const textGap = parseFloat(document.getElementById('textY').value) || 30; 
+                const textOffsetX = parseFloat(document.getElementById('textX').value) || 0;
+
+                let finalX = params.posX + textOffsetX;
+                let finalY;
+
+                if (isAbove) {
+                    // Positioned above the top edge of the card
+                    finalY = params.posY - textGap;
+                } else {
+                    // Positioned below the bottom edge of the card
+                    finalY = params.posY + h + textGap;
+                }
+
                 ctx.font = `600 ${params.fontSize}px sans-serif`;
                 ctx.fillStyle = params.textColor;
                 ctx.shadowColor = 'transparent';
                 ctx.shadowBlur = 0;
                 ctx.shadowOffsetX = 0;
                 ctx.shadowOffsetY = 0;
-                ctx.fillText(params.textContent, params.textX, params.textY);
+                
+                ctx.fillText(params.textContent, finalX, finalY);
                 ctx.restore();
             }
         }
