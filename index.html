@@ -502,7 +502,7 @@
         </div>
     </div>
 
-    <script>
+   <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
@@ -512,42 +512,22 @@
         let uploadedImages = [];
         let currentImageIndex = 0;
 
-        // Default test image (gradient placeholder if no upload yet)
+        // Default test image
         const defaultImg = new Image();
         defaultImg.crossOrigin = "anonymous";
-        defaultImg.src = "default.png"
+        defaultImg.src = "default.png";
         defaultImg.onload = () => draw();
 
-        // Background Theme Thumbnails Generation (Procedural Preview BGs matching reference)
+        // Background Theme Thumbnails Generation
         const bgFiles = [
-            '1.jpg',
-            '2.jpg',
-            '3.jpg',
-            '4.jpg',
-            '5.jpg',
-            '6.jpg',
-            '7.jpg',
-            '8.jpg',
-            '9.jpg',
-            '10.jpg',
-            '11.jpg',
-            '12.jpg',
-            '13.jpg',
-            '14.jpg',
-            '15.jpg',
-            '16.jpg',
-            '17.jpg',
-            '18.jpg',
-            '19.jpg',
-            '20.jpg',
-            '21.jpg',
-            '22.jpg',
-            '23.jpg',
-            '24.jpg',
+            '1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', '7.jpg', '8.jpg', '9.jpg', '10.jpg',
+            '11.jpg', '12.jpg', '13.jpg', '14.jpg', '15.jpg', '16.jpg', '17.jpg', '18.jpg', '19.jpg', '20.jpg',
+            '21.jpg', '22.jpg', '23.jpg', '24.jpg'
         ];
 
         function createBgThumbnails() {
             const grid = document.getElementById('bgGrid');
+            if (!grid) return;
             grid.innerHTML = '';
             
             bgFiles.forEach((file, index) => {
@@ -573,66 +553,17 @@
                 };
             });
         }
+        createBgThumbnails();
 
-
-        // Sync Shadow Color Inputs
-        const shadowColorInput = document.getElementById('shadowColor');
-        const shadowColorText = document.getElementById('shadowColorText');
-
-        shadowColorInput.addEventListener('input', (e) => {
-            shadowColorText.value = e.target.value;
-            draw();
-        });
-
-        shadowColorText.addEventListener('input', (e) => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                shadowColorInput.value = e.target.value;
-                draw();
-            }
-        });
-
-        // 2. Sync Text Color inputs
-        const textColorInput = document.getElementById('textColor');
-        const textColorText = document.getElementById('textColorText');
-        if (textColorInput && textColorText) {
-            textColorInput.addEventListener('input', (e) => {
-                textColorText.value = e.target.value;
-                draw();
-            });
-            textColorText.addEventListener('input', (e) => {
-                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                    textColorInput.value = e.target.value;
-                    draw();
-                }
-            });
-        }
-
-        // 3. Attach input listeners to ALL text and rotation controls so they update instantly
-        const liveInputIds = ['textContent', 'textX', 'textY', 'fontSize', 'rotateZ', 'textAbove'];
-        liveInputIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('input', draw);
-                el.addEventListener('change', draw); // 'change' handles checkbox toggles reliably
-            }
-        });
-
-        // Put the textAbove listener right here with them:
-        const textAboveEl = document.getElementById('textAbove');
-        if (textAboveEl) {
-            textAboveEl.addEventListener('change', draw);
-        }
-
-        // Main Draw Function
         // Helper to convert hex to RGB
         function hexToRgb(hex) {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
+            const r = parseInt(hex.slice(1, 3), 16) || 0;
+            const g = parseInt(hex.slice(3, 5), 16) || 0;
+            const b = parseInt(hex.slice(5, 7), 16) || 0;
             return { r, g, b };
         }
 
-        // Main Draw Function with 3D Perspective and Figma Shadow support
+        // Main Draw Function (Completely independent text and perspective support)
         function draw() {
             if (!ctx) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -676,74 +607,114 @@
 
             const w = imgToDraw.width * params.scaleX;
             const h = imgToDraw.height * params.scaleY;
-            const isAbove = document.getElementById('textAbove') ? document.getElementById('textAbove').checked : false;
 
-            // --- OPTIONAL: DRAW TEXT FIRST (So it sits BEHIND the image card if they overlap) ---
-            // If you want text strictly behind the image, keep this block here before drawing the card.
-            (params.textContent.trim() !== '')
+            // 3. Draw Text Independently (Absolute coordinates so image movement doesn't affect it)
+            if (params.textContent.trim() !== '') {
+                ctx.save();
+                ctx.font = `600 ${params.fontSize}px sans-serif`;
+                ctx.fillStyle = params.textColor;
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.fillText(params.textContent, params.textX, params.textY);
+                ctx.restore();
+            }
 
-        // Horizontal Drag Scrubbing
-        document.querySelectorAll('.control-field, .full-field').forEach(field => {
-            const input = field.querySelector('input');
-            if (!input) return; // Add safeguard
-            
-            let isDragging = false;
-            let startX = 0;
-            let startVal = 0;
+            // 4. Draw Card with Perspective (X, Y, Z Axis)
+            const rgb = hexToRgb(params.shadowColorHex);
+            const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
 
-            field.addEventListener('mousedown', (e) => {
-                if (e.target === input) return;
-                isDragging = true;
-                startX = e.clientX;
-                startVal = parseFloat(input.value) || 0;
-                document.body.style.cursor = 'ew-resize';
-                e.preventDefault();
-            });
+            ctx.save();
+            ctx.translate(params.posX, params.posY);
 
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const delta = e.clientX - startX;
-                // Sensitivities
-                let deltaMultiplier = 0.5;
-                if (input.id.startsWith('rotate') || input.id.startsWith('shadow')) deltaMultiplier = 1; 
+            // Apply 3D Perspective + Z-Axis rotation
+            ctx.transform(1, Math.tan(params.rotX), Math.tan(params.rotY), 1, 0, 0);
+            ctx.rotate(params.rotZ);
 
-                let newVal = startVal + Math.round(delta * deltaMultiplier);
-                
-                // Limits
-                if (input.id === 'scaleX' || input.id === 'scaleY') {
-                    newVal = Math.max(10, Math.min(300, newVal));
-                } else if (input.id === 'cornerRadius') {
-                    newVal = Math.max(0, Math.min(200, newVal));
-                } else if (input.id === 'strokeWidth') {
-                    newVal = Math.max(0, Math.min(50, newVal));
-                } else if (input.id.startsWith('rotate')) {
-                    newVal = Math.max(-90, Math.min(90, newVal)); // Limit rotation
-                } else if (input.id === 'shadowOpacity') {
-                    newVal = Math.max(0, Math.min(100, newVal));
-                } else if (input.id === 'shadowBlur') {
-                    newVal = Math.max(0, newVal);
-                }
+            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)' && params.shadowBlur > 0) {
+                ctx.shadowColor = canvasShadowColor;
+                ctx.shadowBlur = params.shadowBlur;
+                ctx.shadowOffsetX = params.shadowX;
+                ctx.shadowOffsetY = params.shadowY;
+            }
 
-                input.value = newVal;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, w, h, params.radius);
+            ctx.closePath();
+            ctx.fillStyle = '#000000';
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            ctx.save();
+            ctx.clip();
+            ctx.drawImage(imgToDraw, 0, 0, w, h);
+            ctx.restore();
+
+            if (params.strokeWidth > 0) {
+                ctx.lineWidth = params.strokeWidth * 2;
+                ctx.strokeStyle = params.strokeColor;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Sync Shadow Color Inputs
+        const shadowColorInput = document.getElementById('shadowColor');
+        const shadowColorText = document.getElementById('shadowColorText');
+        if (shadowColorInput && shadowColorText) {
+            shadowColorInput.addEventListener('input', (e) => {
+                shadowColorText.value = e.target.value;
                 draw();
             });
-
-            window.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    document.body.style.cursor = 'default';
+            shadowColorText.addEventListener('input', (e) => {
+                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                    shadowColorInput.value = e.target.value;
+                    draw();
                 }
             });
+        }
+
+        // Sync Text Color Inputs
+        const textColorInput = document.getElementById('textColor');
+        const textColorText = document.getElementById('textColorText');
+        if (textColorInput && textColorText) {
+            textColorInput.addEventListener('input', (e) => {
+                textColorText.value = e.target.value;
+                draw();
+            });
+            textColorText.addEventListener('input', (e) => {
+                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                    textColorInput.value = e.target.value;
+                    draw();
+                }
+            });
+        }
+
+        // Sync Stroke Color Inputs
+        const strokeColorInput = document.getElementById('strokeColor');
+        const strokeColorText = document.getElementById('strokeColorText');
+        if (strokeColorInput && strokeColorText) {
+            strokeColorInput.addEventListener('input', (e) => {
+                strokeColorText.value = e.target.value;
+                draw();
+            });
+            strokeColorText.addEventListener('input', (e) => {
+                if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                    strokeColorInput.value = e.target.value;
+                    draw();
+                }
+            });
+        }
+
+        // Input Change Listeners for all number and text fields
+        document.querySelectorAll('input[type="number"], input[type="text"]').forEach(input => {
+            input.addEventListener('input', () => draw());
         });
 
-        // Load Google Fonts dynamically
-        const fontLink = document.createElement('link');
-        fontLink.rel = 'stylesheet';
-        fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap';
-        document.head.appendChild(fontLink);
-
-        // File Upload Handler
-        // Update your fileInput event listener for multi-upload:
+        // File Upload Handler (Multi-upload support)
         const fileInput = document.getElementById('fileInput');
         if (fileInput) {
             fileInput.addEventListener('change', function(e) {
@@ -766,36 +737,17 @@
             });
         }
 
-        // Sync Color Inputs
-        const strokeColorInput = document.getElementById('strokeColor');
-        const strokeColorText = document.getElementById('strokeColorText');
-
-        strokeColorInput.addEventListener('input', (e) => {
-            strokeColorText.value = e.target.value;
-            draw();
-        });
-
-        strokeColorText.addEventListener('input', (e) => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
-                strokeColorInput.value = e.target.value;
-                draw();
-            }
-        });
-
-        // Input Change Listener for all number fields
-        document.querySelectorAll('input[type="number"]').forEach(input => {
-            input.addEventListener('input', () => draw());
-        });
-
-        // Horizontal Drag Scrubbing (Click & Drag left/right to change values)
+        // Horizontal Drag Scrubbing for Control Fields
         document.querySelectorAll('.control-field, .full-field').forEach(field => {
             const input = field.querySelector('input');
+            if (!input) return;
+            
             let isDragging = false;
             let startX = 0;
             let startVal = 0;
 
             field.addEventListener('mousedown', (e) => {
-                if (e.target === input) return; // allow normal input typing click
+                if (e.target === input) return;
                 isDragging = true;
                 startX = e.clientX;
                 startVal = parseFloat(input.value) || 0;
@@ -808,7 +760,6 @@
                 const delta = e.clientX - startX;
                 let newVal = startVal + Math.round(delta * 0.5);
                 
-                // Constraints
                 if (input.id === 'scaleX' || input.id === 'scaleY') {
                     newVal = Math.max(10, Math.min(300, newVal));
                 } else if (input.id === 'cornerRadius') {
@@ -829,13 +780,7 @@
             });
         });
 
-        // Export PNG
-        // High-Resolution 1080p Export PNG
         // High-Resolution Proportional Export (2000x1200)
-        // Clean Offscreen 2000x1200 Export (Does not touch preview canvas)
-        // Perfect Proportional 2000x1200 Export using Context Scaling
-        // Fully Proportional 2000x1200 Export
-        // Perfect Proportional 2000x1200 Export with High-Quality Smoothing
         document.getElementById('exportBtn').addEventListener('click', () => {
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = 2000;
@@ -845,9 +790,8 @@
             eCtx.imageSmoothingEnabled = true;
             eCtx.imageSmoothingQuality = 'high';
 
-            const scale = 2; // 2x scale factor for HD output
+            const scale = 2;
 
-            // Draw Background
             if (bgImages[currentBgIndex]) {
                 eCtx.drawImage(bgImages[currentBgIndex], 0, 0, exportCanvas.width, exportCanvas.height);
             } else {
@@ -873,15 +817,23 @@
             const shadowX = (parseFloat(document.getElementById('shadowX').value) || 0) * scale;
             const shadowY = (parseFloat(document.getElementById('shadowY').value) || 0) * scale;
             const shadowBlur = (parseFloat(document.getElementById('shadowBlur').value) || 0) * scale;
-            const shadowSpread = (parseFloat(document.getElementById('shadowSpread').value) || 0) * scale;
 
             const textContent = document.getElementById('textContent').value || '';
             const textColor = document.getElementById('textColor').value || '#ffffff';
-            const textX = (parseFloat(document.getElementById('textX').value) || 50) * scale;
-            const textY = (parseFloat(document.getElementById('textY').value) || 50) * scale;
-            const fontSize = (parseFloat(document.getElementById('fontSize').value) || 22) * scale;
-            const fontFamily = document.getElementById('fontFamily') ? document.getElementById('fontFamily').value : 'Inter';
-            const fontWeight = document.getElementById('fontWeight') ? document.getElementById('fontWeight').value : '600';
+            const textX = (parseFloat(document.getElementById('textX').value) || 60) * scale;
+            const textY = (parseFloat(document.getElementById('textY').value) || 60) * scale;
+            const fontSize = (parseFloat(document.getElementById('fontSize').value) || 28) * scale;
+
+            // Draw Export Text
+            if (textContent.trim() !== '') {
+                eCtx.save();
+                eCtx.font = `600 ${fontSize}px sans-serif`;
+                eCtx.fillStyle = textColor;
+                eCtx.shadowColor = 'transparent';
+                eCtx.shadowBlur = 0;
+                eCtx.fillText(textContent, textX, textY);
+                eCtx.restore();
+            }
 
             const rgb = hexToRgb(shadowColorHex);
             const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${shadowOpacity / 100})`;
@@ -889,7 +841,6 @@
             const w = imgToDraw.width * scaleX * scale;
             const h = imgToDraw.height * scaleY * scale;
 
-            // Draw card on export canvas
             eCtx.save();
             eCtx.translate(posX, posY);
             eCtx.transform(1, Math.tan(rotX), Math.tan(rotY), 1, 0, 0);
@@ -925,25 +876,11 @@
             }
             eCtx.restore();
 
-            // Draw Text on export canvas (scaled positions/size, zero shadow)
-            if (textContent.trim() !== '') {
-                eCtx.save();
-                eCtx.font = `${fontWeight} ${fontSize}px '${fontFamily}', sans-serif`;
-                eCtx.fillStyle = textColor;
-                eCtx.shadowColor = 'transparent';
-                eCtx.shadowBlur = 0;
-                eCtx.fillText(textContent, textX, textY);
-                eCtx.restore();
-            }
-
-            // Trigger download
             const link = document.createElement('a');
             link.download = 'fancy-post-hd.png';
             link.href = exportCanvas.toDataURL('image/png');
             link.click();
         });
-        // Initialize App
-        createBgThumbnails();
     </script>
 </body>
 </html>
