@@ -678,17 +678,19 @@
             const h = imgToDraw.height * params.scaleY;
             const isAbove = document.getElementById('textAbove') ? document.getElementById('textAbove').checked : false;
 
-            // --- OPTIONAL: DRAW TEXT FIRST (So it sits BEHIND the image card if they overlap) ---
-            // If you want text strictly behind the image, keep this block here before drawing the card.
+            // --- 3. DRAW TEXT FIRST (Completely Independent unless "Above image" is checked) ---
             if (params.textContent.trim() !== '') {
                 ctx.save();
-                let finalX = params.posX + params.textX; // Relative to card X offset only
-                let finalY;
+                let finalX, finalY;
 
                 if (isAbove) {
-                    finalY = params.posY - params.textY; // Above card top edge using textY as gap
+                    // Locked above the top edge of the card
+                    finalX = params.posX + params.textX;
+                    finalY = params.posY - params.textY;
                 } else {
-                    finalY = params.posY + params.textY; // Completely independent absolute Y or relative offset
+                    // 100% Independent: Image X and Y positions will NOT affect this text at all
+                    finalX = params.textX;
+                    finalY = params.textY;
                 }
 
                 ctx.font = `600 ${params.fontSize}px sans-serif`;
@@ -699,7 +701,7 @@
                 ctx.restore();
             }
 
-            // --- DRAW CARD WITH PERSPECTIVE (X, Y, Z Axis) ---
+            // --- 4. DRAW CARD WITH PERSPECTIVE (X, Y, Z Axis) ---
             const rgb = hexToRgb(params.shadowColorHex);
             const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
 
