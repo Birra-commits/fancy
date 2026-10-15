@@ -634,117 +634,102 @@
             const b = parseInt(hex.slice(5, 7), 16);
             return { r, g, b };
         }
-
+       // new function
+        function syncInputsFromActiveImage() {
+    if (uploadedImages.length === 0) return;
+    const active = uploadedImages[currentImageIndex];
+    
+    document.getElementById('posX').value = active.posX;
+    document.getElementById('posY').value = active.posY;
+    document.getElementById('scaleX').value = active.scaleX;
+    document.getElementById('scaleY').value = active.scaleY;
+    document.getElementById('rotateX').value = active.rotateX;
+    document.getElementById('rotateY').value = active.rotateY;
+    document.getElementById('rotateZ').value = active.rotateZ;
+    document.getElementById('cornerRadius').value = active.cornerRadius;
+    document.getElementById('strokeWidth').value = active.strokeWidth;
+}
         // Main Draw Function with 3D Perspective and Figma Shadow support
         function draw() {
-            if (!ctx) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. Draw Background Theme
-            if (bgImages && bgImages[currentBgIndex]) {
-                ctx.drawImage(bgImages[currentBgIndex], 0, 0, canvas.width, canvas.height);
-            } else {
-                ctx.fillStyle = '#222';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 1. Draw Background Theme
+    if (bgImages && bgImages[currentBgIndex]) {
+        ctx.drawImage(bgImages[currentBgIndex], 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 2. Draw Text (if any)
+    const textContent = document.getElementById('textContent')?.value || '';
+    if (textContent.trim() !== '') {
+        ctx.save();
+        ctx.font = `600 ${document.getElementById('fontSize')?.value || 28}px sans-serif`;
+        ctx.fillStyle = document.getElementById('textColor')?.value || '#ffffff';
+        ctx.fillText(textContent, parseFloat(document.getElementById('textX')?.value) || 60, parseFloat(document.getElementById('textY')?.value) || 60);
+        ctx.restore();
+    }
+
+    // 3. Draw ALL Uploaded Images (or fallback to default if empty)
+    if (uploadedImages.length === 0) {
+        // Draw default placeholder image if no uploads exist
+        if (defaultImg.complete) {
+            ctx.drawImage(defaultImg, 150, 150, defaultImg.width * 0.7, defaultImg.height * 0.7);
+        }
+    } else {
+        uploadedImages.forEach((item, index) => {
+            // If user is currently typing/tweaking an input, sync it to the active item in real-time
+            if (index === currentImageIndex) {
+                item.posX = parseFloat(document.getElementById('posX').value) || item.posX;
+                item.posY = parseFloat(document.getElementById('posY').value) || item.posY;
+                item.scaleX = parseFloat(document.getElementById('scaleX').value) || item.scaleX;
+                item.scaleY = parseFloat(document.getElementById('scaleY').value) || item.scaleY;
+                item.rotateX = parseFloat(document.getElementById('rotateX').value) || item.rotateX;
+                item.rotateY = parseFloat(document.getElementById('rotateY').value) || item.rotateY;
+                item.rotateZ = parseFloat(document.getElementById('rotateZ').value) || item.rotateZ;
+                item.cornerRadius = parseFloat(document.getElementById('cornerRadius').value) || item.cornerRadius;
+                item.strokeWidth = parseFloat(document.getElementById('strokeWidth').value) || item.strokeWidth;
             }
 
-            // 2. Active Image (Multi-upload fallback to default)
-            const imgToDraw = (uploadedImages.length > 0) ? uploadedImages[currentImageIndex] : defaultImg;
-            if (!imgToDraw) return;
-
-            // Gather Parameters
-            const params = {
-                posX: parseFloat(document.getElementById('posX').value) || 0,
-                posY: parseFloat(document.getElementById('posY').value) || 0,
-                scaleX: (parseFloat(document.getElementById('scaleX').value) || 70) / 100,
-                scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
-                rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
-                rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
-                rotZ: (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180),
-                radius: parseFloat(document.getElementById('cornerRadius').value) || 0,
-                strokeWidth: parseFloat(document.getElementById('strokeWidth').value) || 0,
-                strokeColor: document.getElementById('strokeColor')?.value || '#ffffff',
-                shadowColorHex: document.getElementById('shadowColor')?.value || '#000000',
-                shadowOpacity: parseFloat(document.getElementById('shadowOpacity')?.value) || 25,
-                shadowX: parseFloat(document.getElementById('shadowX')?.value) || 0,
-                shadowY: parseFloat(document.getElementById('shadowY')?.value) || 0,
-                shadowBlur: parseFloat(document.getElementById('shadowBlur')?.value) || 0,
-                shadowSpread: parseFloat(document.getElementById('shadowSpread')?.value) || 0,
-                textContent: document.getElementById('textContent')?.value || '',
-                textColor: document.getElementById('textColor')?.value || '#ffffff',
-                textX: parseFloat(document.getElementById('textX')?.value) || 60,
-                textY: parseFloat(document.getElementById('textY')?.value) || 60,
-                fontSize: parseFloat(document.getElementById('fontSize')?.value) || 28
-            };
-
-            const w = imgToDraw.width * params.scaleX;
-            const h = imgToDraw.height * params.scaleY;
-            const isAbove = document.getElementById('textAbove') ? document.getElementById('textAbove').checked : false;
-
-            // --- 3. DRAW TEXT FIRST (Completely Independent unless "Above image" is checked) ---
-            if (params.textContent.trim() !== '') {
-                ctx.save();
-                let finalX, finalY;
-
-                if (isAbove) {
-                    // Locked above the top edge of the card
-                    finalX = params.posX + params.textX;
-                    finalY = params.posY - params.textY;
-                } else {
-                    // 100% Independent: Image X and Y positions will NOT affect this text at all
-                    finalX = params.textX;
-                    finalY = params.textY;
-                }
-
-                ctx.font = `600 ${params.fontSize}px sans-serif`;
-                ctx.fillStyle = params.textColor;
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-                ctx.fillText(params.textContent, finalX, finalY);
-                ctx.restore();
-            }
-
-            // --- 4. DRAW CARD WITH PERSPECTIVE (X, Y, Z Axis) ---
-            const rgb = hexToRgb(params.shadowColorHex);
-            const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
+            const w = item.img.width * (item.scaleX / 100);
+            const h = item.img.height * (item.scaleY / 100);
 
             ctx.save();
-            ctx.translate(params.posX, params.posY);
+            ctx.translate(item.posX, item.posY);
+            ctx.transform(1, Math.tan(item.rotateX * Math.PI / 180), Math.tan(item.rotateY * Math.PI / 180), 1, 0, 0);
+            ctx.rotate(item.rotateZ * Math.PI / 180);
 
-            // Apply 3D Perspective + Z-Axis rotation
-            ctx.transform(1, Math.tan(params.rotX), Math.tan(params.rotY), 1, 0, 0);
-            ctx.rotate(params.rotZ);
-
-            if (canvasShadowColor !== 'rgba(0, 0, 0, 0)' && params.shadowBlur > 0) {
-                ctx.shadowColor = canvasShadowColor;
-                ctx.shadowBlur = params.shadowBlur;
-                ctx.shadowOffsetX = params.shadowX;
-                ctx.shadowOffsetY = params.shadowY;
-            }
+            // Draw shadow for this specific card
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 30;
+            ctx.shadowOffsetX = 10;
+            ctx.shadowOffsetY = 20;
 
             ctx.beginPath();
-            ctx.roundRect(0, 0, w, h, params.radius);
+            ctx.roundRect(0, 0, w, h, item.cornerRadius);
             ctx.closePath();
             ctx.fillStyle = '#000000';
             ctx.fill();
 
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
 
             ctx.save();
             ctx.clip();
-            ctx.drawImage(imgToDraw, 0, 0, w, h);
+            ctx.drawImage(item.img, 0, 0, w, h);
             ctx.restore();
 
-            if (params.strokeWidth > 0) {
-                ctx.lineWidth = params.strokeWidth * 2;
-                ctx.strokeStyle = params.strokeColor;
+            if (item.strokeWidth > 0) {
+                ctx.lineWidth = item.strokeWidth * 2;
+                ctx.strokeStyle = item.strokeColor;
                 ctx.stroke();
             }
-            ctx.restore(); // End Card Block
-        }
+            ctx.restore();
+        });
+    }
+}
 
         // Horizontal Drag Scrubbing
         document.querySelectorAll('.control-field, .full-field').forEach(field => {
@@ -809,27 +794,46 @@
         // File Upload Handler
         // Update your fileInput event listener for multi-upload:
         const fileInput = document.getElementById('fileInput');
-        if (fileInput) {
-            fileInput.addEventListener('change', function(e) {
-                const files = e.target.files;
-                if (files && files.length > 0) {
-                    Array.from(files).forEach(file => {
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            const img = new Image();
-                            img.onload = function() {
-                                uploadedImages.push(img);
-                                currentImageIndex = uploadedImages.length - 1; // Switch to the newly uploaded image
-                                updateImageThumbnails();
-                                draw();
-                            };
-                            img.src = event.target.result;
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                }
+if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            Array.from(files).forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        uploadedImages.push({
+                            img: img,
+                            posX: 100 + (uploadedImages.length * 40), // Offset each new image slightly
+                            posY: 100 + (uploadedImages.length * 40),
+                            scaleX: 70,
+                            scaleY: 70,
+                            rotateX: 0,
+                            rotateY: 0,
+                            rotateZ: 0,
+                            cornerRadius: 10,
+                            strokeWidth: 2,
+                            strokeColor: '#5b6ab3',
+                            shadowColor: '#000000',
+                            shadowOpacity: 25,
+                            shadowX: 10,
+                            shadowY: 20,
+                            shadowBlur: 30,
+                            shadowSpread: 5
+                        });
+                        currentImageIndex = uploadedImages.length - 1;
+                        syncInputsFromActiveImage();
+                        updateImageThumbnails();
+                        draw();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
             });
         }
+    });
+}
 
         function updateImageThumbnails() {
             const grid = document.getElementById('imageThumbGrid');
