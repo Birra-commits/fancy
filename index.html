@@ -657,7 +657,7 @@
                 scaleY: (parseFloat(document.getElementById('scaleY').value) || 70) / 100,
                 rotX: (parseFloat(document.getElementById('rotateX').value) || 0) * (Math.PI / 180),
                 rotY: (parseFloat(document.getElementById('rotateY').value) || 0) * (Math.PI / 180),
-                rotZ: (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180), // Z-Axis
+                rotZ: (parseFloat(document.getElementById('rotateZ').value) || 0) * (Math.PI / 180),
                 radius: parseFloat(document.getElementById('cornerRadius').value) || 0,
                 strokeWidth: parseFloat(document.getElementById('strokeWidth').value) || 0,
                 strokeColor: document.getElementById('strokeColor')?.value || '#ffffff',
@@ -674,13 +674,35 @@
                 fontSize: parseFloat(document.getElementById('fontSize')?.value) || 28
             };
 
+            const w = imgToDraw.width * params.scaleX;
+            const h = imgToDraw.height * params.scaleY;
+            const isAbove = document.getElementById('textAbove') ? document.getElementById('textAbove').checked : false;
+
+            // --- OPTIONAL: DRAW TEXT FIRST (So it sits BEHIND the image card if they overlap) ---
+            // If you want text strictly behind the image, keep this block here before drawing the card.
+            if (params.textContent.trim() !== '') {
+                ctx.save();
+                let finalX = params.posX + params.textX; // Relative to card X offset only
+                let finalY;
+
+                if (isAbove) {
+                    finalY = params.posY - params.textY; // Above card top edge using textY as gap
+                } else {
+                    finalY = params.posY + params.textY; // Completely independent absolute Y or relative offset
+                }
+
+                ctx.font = `600 ${params.fontSize}px sans-serif`;
+                ctx.fillStyle = params.textColor;
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.fillText(params.textContent, finalX, finalY);
+                ctx.restore();
+            }
+
+            // --- DRAW CARD WITH PERSPECTIVE (X, Y, Z Axis) ---
             const rgb = hexToRgb(params.shadowColorHex);
             const canvasShadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${params.shadowOpacity / 100})`;
 
-            const w = imgToDraw.width * params.scaleX;
-            const h = imgToDraw.height * params.scaleY;
-
-            // --- DRAW CARD WITH PERSPECTIVE (X, Y, Z Axis) ---
             ctx.save();
             ctx.translate(params.posX, params.posY);
 
@@ -717,43 +739,6 @@
                 ctx.stroke();
             }
             ctx.restore(); // End Card Block
-
-            // --- DRAW TEXT (Independent Position, Zero Shadow, Crisp Flat Render) ---
-            // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
-            // --- DRAW TEXT (Positioned Automatically Above or Below the Card) ---
-            // --- DRAW TEXT (Independent by default, snaps above image when checked) ---
-            if (params.textContent.trim() !== '') {
-                ctx.save();
-                
-                const isAboveElement = document.getElementById('textAbove');
-                const isAbove = isAboveElement ? isAboveElement.checked : false;
-                
-                // Get independent text X and Y input values
-                const textX = parseFloat(document.getElementById('textX')?.value) || 60;
-                const textY = parseFloat(document.getElementById('textY')?.value) || 60;
-                const textGap = 25; // Spacing above the card when checkbox is checked
-
-                let finalX = textX;
-                let finalY;
-
-                if (isAbove) {
-                    // When "Above image" is checked, lock text directly above the card's top edge
-                    finalY = params.posY - textGap;
-                } else {
-                    // When unchecked, text stays completely independent at its own Y coordinate (image position won't affect it)
-                    finalY = textY;
-                }
-
-                ctx.font = `600 ${params.fontSize}px sans-serif`;
-                ctx.fillStyle = params.textColor;
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 0;
-                
-                ctx.fillText(params.textContent, finalX, finalY);
-                ctx.restore();
-            }
         }
 
         // Horizontal Drag Scrubbing
