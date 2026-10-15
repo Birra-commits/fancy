@@ -636,19 +636,19 @@
         }
        // new function
         function syncInputsFromActiveImage() {
-    if (uploadedImages.length === 0) return;
-    const active = uploadedImages[currentImageIndex];
-    
-    document.getElementById('posX').value = active.posX;
-    document.getElementById('posY').value = active.posY;
-    document.getElementById('scaleX').value = active.scaleX;
-    document.getElementById('scaleY').value = active.scaleY;
-    document.getElementById('rotateX').value = active.rotateX;
-    document.getElementById('rotateY').value = active.rotateY;
-    document.getElementById('rotateZ').value = active.rotateZ;
-    document.getElementById('cornerRadius').value = active.cornerRadius;
-    document.getElementById('strokeWidth').value = active.strokeWidth;
-}
+            if (uploadedImages.length === 0) return;
+            const active = uploadedImages[currentImageIndex];
+            
+            document.getElementById('posX').value = active.posX;
+            document.getElementById('posY').value = active.posY;
+            document.getElementById('scaleX').value = active.scaleX;
+            document.getElementById('scaleY').value = active.scaleY;
+            document.getElementById('rotateX').value = active.rotateX;
+            document.getElementById('rotateY').value = active.rotateY;
+            document.getElementById('rotateZ').value = active.rotateZ;
+            document.getElementById('cornerRadius').value = active.cornerRadius;
+            document.getElementById('strokeWidth').value = active.strokeWidth;
+        }
         // Main Draw Function with 3D Perspective and Figma Shadow support
         function draw() {
     if (!ctx) return;
@@ -840,22 +840,78 @@ if (fileInput) {
             if (!grid) return;
             grid.innerHTML = '';
             
-            uploadedImages.forEach((img, index) => {
+            uploadedImages.forEach((item, index) => {
                 const thumb = document.createElement('div');
                 thumb.className = `bg-thumb ${index === currentImageIndex ? 'active' : ''}`;
-                thumb.style.backgroundImage = `url('${img.src}')`;
+                thumb.style.backgroundImage = `url('${item.img.src}')`;
                 thumb.style.backgroundSize = 'cover';
                 thumb.style.backgroundPosition = 'center';
-                
-                thumb.onclick = () => {
+                thumb.style.backgroundColor = '#333'; // Prevents dark/black box if loading
+                thumb.style.position = 'relative';
+
+                // Click to select image (saves current inputs first)
+                thumb.onclick = (e) => {
+                    if (e.target.classList.contains('delete-btn')) return; // Don't select if clicking delete
+                    
+                    // Save current inputs to active item before switching
+                    if (uploadedImages[currentImageIndex]) {
+                        uploadedImages[currentImageIndex].posX = parseFloat(document.getElementById('posX').value) || 0;
+                        uploadedImages[currentImageIndex].posY = parseFloat(document.getElementById('posY').value) || 0;
+                        uploadedImages[currentImageIndex].scaleX = parseFloat(document.getElementById('scaleX').value) || 70;
+                        uploadedImages[currentImageIndex].scaleY = parseFloat(document.getElementById('scaleY').value) || 70;
+                        uploadedImages[currentImageIndex].rotateX = parseFloat(document.getElementById('rotateX').value) || 0;
+                        uploadedImages[currentImageIndex].rotateY = parseFloat(document.getElementById('rotateY').value) || 0;
+                        uploadedImages[currentImageIndex].rotateZ = parseFloat(document.getElementById('rotateZ').value) || 0;
+                        uploadedImages[currentImageIndex].cornerRadius = parseFloat(document.getElementById('cornerRadius').value) || 10;
+                        uploadedImages[currentImageIndex].strokeWidth = parseFloat(document.getElementById('strokeWidth').value) || 2;
+                    }
+
                     currentImageIndex = index;
+                    syncInputsFromActiveImage();
                     updateImageThumbnails();
                     draw();
                 };
+
+                // Delete Icon (Top Right)
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.title = 'Delete image';
+                deleteBtn.style.cssText = `
+                    position: absolute;
+                    top: 4px;
+                    right: 4px;
+                    background: rgba(0, 0, 0, 0.7);
+                    color: #fff;
+                    border: none;
+                    border-radius: 50%;
+                    width: 20px;
+                    height: 20px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: background 0.2s;
+                `;
+                deleteBtn.onmouseover = () => deleteBtn.style.background = '#ff3b30';
+                deleteBtn.onmouseout = () => deleteBtn.style.background = 'rgba(0, 0, 0, 0.7)';
+                
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    uploadedImages.splice(index, 1);
+                    if (currentImageIndex >= uploadedImages.length) {
+                        currentImageIndex = Math.max(0, uploadedImages.length - 1);
+                    }
+                    syncInputsFromActiveImage();
+                    updateImageThumbnails();
+                    draw();
+                };
+
+                thumb.appendChild(deleteBtn);
                 grid.appendChild(thumb);
             });
         }
-
         // Sync Color Inputs
         const strokeColorInput = document.getElementById('strokeColor');
         const strokeColorText = document.getElementById('strokeColorText');
